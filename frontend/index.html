@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>K2 Assistive Web System</title>
+  
+  <!-- Modern clean typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Left Column: Chat Conversation Panel -->
+    <section class="panel chat-panel" id="chat-panel">
+      <div class="panel-header">
+        <h2>CHAT LOG</h2>
+      </div>
+      <div class="chat-log" id="chat-log-scroll">
+        <!-- Messages are rendered dynamically by app.js -->
+        <div class="system-message">System initialized. Ready.</div>
+      </div>
+    </section>
+
+    <!-- Middle Column: Main Editor & Predictions/Keyboard -->
+    <main class="main-editor-container">
+      
+      <!-- Top Edit Toolbar -->
+      <div class="edit-toolbar">
+        <button id="btn-clear" class="btn btn-danger">Del All</button>
+        <button id="btn-del-word" class="btn btn-secondary">Del Word</button>
+        <button id="btn-del-char" class="btn btn-secondary">Del Char</button>
+        
+        <button id="btn-dictate" class="btn btn-teal">Dictate</button>
+        
+        <button id="btn-say" class="btn btn-success">Say</button>
+        <button id="btn-type" class="btn btn-success">Copy</button>
+        <button id="btn-cloud" class="btn btn-primary">@CloudAI</button>
+        
+        <button id="btn-save" class="btn btn-warning">Save</button>
+        <button id="btn-settings" class="btn btn-settings-icon">&#9881;</button>
+      </div>
+
+      <!-- Editor Text Box -->
+      <div class="textbox-wrapper">
+        <textarea id="editor-box" placeholder="Type here..." readonly></textarea>
+      </div>
+
+      <!-- Bottom Predictions Bar -->
+      <div class="predictions-bar" id="predictions-bar">
+        <div class="predict-col">
+          <h3>CHARS</h3>
+          <div class="predictions-list" id="char-predictions"></div>
+        </div>
+        <div class="predict-col">
+          <h3>WORDS</h3>
+          <div class="predictions-list" id="word-predictions"></div>
+        </div>
+        <div class="predict-col">
+          <h3>PHRASES</h3>
+          <div class="predictions-list" id="phrase-predictions"></div>
+        </div>
+      </div>
+
+      <!-- Toggle Virtual Keyboard -->
+      <div class="keyboard-container" id="keyboard">
+        <!-- Keyboard rows are populated dynamically by app.js -->
+      </div>
+    </main>
+
+    <!-- Right Column: Saved Actions Macro Grid -->
+    <section class="panel actions-panel">
+      <div class="panel-header">
+        <h2>SAVED ACTIONS</h2>
+        <div class="action-modes">
+          <button id="mode-run" class="mode-btn active">Run</button>
+          <button id="mode-edit" class="mode-btn">Edit</button>
+          <button id="mode-delete" class="mode-btn">Delete</button>
+        </div>
+      </div>
+      <div class="actions-list" id="actions-grid">
+        <!-- Macros are populated dynamically by app.js -->
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Settings Modal Dialog -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-content">
+      <h2>K2 Web Preferences</h2>
+      
+      <div class="settings-form">
+        <div class="form-group">
+          <label for="biography-text">Kay's Personal Biography (Free-Form Notes):</label>
+          <textarea id="biography-text" placeholder="Write biography facts, relationships, interests, routines here..."></textarea>
+          <button id="btn-compile" class="btn btn-teal" style="margin-top: 5px; width: 100%;">Compile Profile via Gemini</button>
+        </div>
+
+        <div class="form-group row-group">
+          <div>
+            <label for="font-editor">Editor Font Size:</label>
+            <input type="number" id="font-editor" value="32" min="16" max="64">
+          </div>
+          <div>
+            <label for="font-keyboard">Keyboard Font Size:</label>
+            <input type="number" id="font-keyboard" value="20" min="12" max="40">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-settings-close" class="btn btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
