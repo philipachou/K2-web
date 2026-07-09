@@ -4,7 +4,8 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 # Load local environment variables if testing locally
@@ -23,6 +24,11 @@ app.add_middleware(
 
 # Set Gemini API Key
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Initialize Gemini Client if key exists
+client = None
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
 class ChatRequest(BaseModel):
     user_message: str
@@ -56,7 +62,7 @@ def parse_suggestions(text: str) -> tuple[str, list[dict]]:
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY or not client:
         # Return fallback mock responses if no API key is set
         mock_reply = "[Mock Cloud AI] Please configure the GEMINI_API_KEY in your server environment settings."
         mock_sug = [
@@ -66,8 +72,6 @@ async def chat(request: ChatRequest):
         return {"reply": mock_reply, "suggestions": mock_sug}
 
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        
         # Build chat context lines from client-provided history
         lines = []
         for msg in request.history:
@@ -110,11 +114,13 @@ async def chat(request: ChatRequest):
             prompt_parts.append("Recent chat history for context:\n" + chat_context)
         prompt_parts.append(f"User message: {request.user_message}")
 
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_instruction
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt_parts,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction
+            )
         )
-        response = model.generate_content(prompt_parts)
         raw_text = response.text.strip()
         
         reply, suggestions = parse_suggestions(raw_text)
@@ -125,11 +131,10 @@ async def chat(request: ChatRequest):
 
 @app.post("/api/transcribe")
 async def transcribe(file: UploadFile = File(...)):
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY or not client:
         return {"transcript": "Mock dictation: Gemini API Key is missing on the server."}
         
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
         audio_data = await file.read()
         
         system_instruction = (
@@ -140,17 +145,21 @@ async def transcribe(file: UploadFile = File(...)):
             "Output ONLY the raw transcribed words and nothing else."
         )
         
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_instruction
+        audio_part = types.Part.from_bytes(
+            data=audio_data,
+            mime_type=file.content_type or "audio/wav"
         )
-        response = model.generate_content([
-            {
-                "mime_type": file.content_type or "audio/wav",
-                "data": audio_data
-            },
-            "Transcribe this audio verbatim."
-        ])
+        
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                audio_part,
+                "Transcribe this audio verbatim."
+            ],
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction
+            )
+        )
         
         transcript = response.text.strip()
         
@@ -177,15 +186,13 @@ async def transcribe(file: UploadFile = File(...)):
 
 @app.post("/api/compile-profile")
 async def compile_profile(profile_text: str = Form(...)):
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY or not client:
         # Mock compiled response
         return [
             {"category": "User Info", "content": profile_text[:200]}
         ]
         
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        
         system_instruction = (
             "You are a structured profile compiler. Read the user's natural language biography and organize it into a structured JSON array of categories.\n\n"
             "Here is the list of preferred standard categories you should try to map the information into:\n"
@@ -204,14 +211,13 @@ async def compile_profile(profile_text: str = Form(...)):
             "]"
         )
         
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_instruction
-        )
-        # Request JSON output structure
-        response = model.generate_content(
-            f"Compile this biography profile:\n{profile_text}",
-            generation_config={"response_mime_type": "application/json"}
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"Compile this biography profile:\n{profile_text}",
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                response_mime_type="application/json"
+            )
         )
         
         import json
