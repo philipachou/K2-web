@@ -15,77 +15,97 @@
 <body>
   <div class="app-container">
     
-    <!-- Left Column: Chat Conversation Panel -->
-    <section class="panel chat-panel" id="chat-panel">
-      <div class="panel-header">
-        <h2>CHAT LOG</h2>
-      </div>
-      <div class="chat-log" id="chat-log-scroll">
-        <!-- Messages are rendered dynamically by app.js -->
-        <div class="system-message">System initialized. Ready.</div>
-      </div>
-    </section>
+    <!-- Row 0: Chat Log (Left) & Actions Panel (Right) -->
+    <div class="top-row">
+      <!-- Left Column: Chat Conversation Panel -->
+      <section class="panel chat-panel" id="chat-panel">
+        <div class="panel-header">
+          <h2>CHAT LOG</h2>
+        </div>
+        <div class="chat-log" id="chat-log-scroll">
+          <!-- Messages are rendered dynamically by app.js -->
+          <div class="system-message">System initialized. Ready.</div>
+        </div>
+      </section>
 
-    <!-- Middle Column: Main Editor & Predictions/Keyboard -->
-    <main class="main-editor-container">
-      
+      <!-- Right Column: Saved Actions Macro Grid -->
+      <section class="panel actions-panel">
+        <div class="panel-header">
+          <h2>SAVED ACTIONS</h2>
+          <div class="actions-header-controls">
+            <!-- Mode selectors -->
+            <div class="action-modes">
+              <button id="mode-delete" class="mode-btn">Delete</button>
+              <button id="mode-edit" class="mode-btn active">Edit</button>
+              <button id="mode-say" class="mode-btn">Say</button>
+              <button id="mode-copy" class="mode-btn">Copy</button>
+              <button id="mode-cloud" class="mode-btn">@CloudAI</button>
+              <button id="mode-recolor" class="mode-btn">Recolor</button>
+            </div>
+            <!-- Recolor dropdown -->
+            <select id="action-color-select" class="dropdown-select">
+              <option value="Blue" selected>Blue</option>
+              <option value="Green">Green</option>
+              <option value="Red">Red</option>
+              <option value="Orange">Orange</option>
+              <option value="Purple">Purple</option>
+              <option value="Yellow">Yellow</option>
+              <option value="Teal">Teal</option>
+              <option value="Pink">Pink</option>
+              <option value="Gray">Gray</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions-list" id="actions-grid">
+          <!-- Macros are populated dynamically by app.js -->
+        </div>
+        <!-- Hover Preview Bar -->
+        <div class="actions-preview-bar" id="actions-preview">
+          Hover over an action to preview...
+        </div>
+      </section>
+    </div>
+
+    <!-- Row 1: Editor Toolbar & Editor Text Box -->
+    <main class="editor-row-panel">
       <!-- Top Edit Toolbar -->
       <div class="edit-toolbar">
         <button id="btn-clear" class="btn btn-danger">Del All</button>
         <button id="btn-del-word" class="btn btn-secondary">Del Word</button>
         <button id="btn-del-char" class="btn btn-secondary">Del Char</button>
-        
         <button id="btn-dictate" class="btn btn-teal">Dictate</button>
-        
         <button id="btn-say" class="btn btn-success">Say</button>
-        <button id="btn-type" class="btn btn-success">Copy</button>
+        <button id="btn-copy" class="btn btn-success">Copy</button>
         <button id="btn-cloud" class="btn btn-primary">@CloudAI</button>
-        
         <button id="btn-save" class="btn btn-warning">Save</button>
         <button id="btn-settings" class="btn btn-settings-icon">&#9881;</button>
       </div>
 
-      <!-- Editor Text Box -->
+      <!-- Editor Text Box (inputmode="none" to prevent virtual OS keyboard) -->
       <div class="textbox-wrapper">
-        <textarea id="editor-box" placeholder="Type here..." readonly></textarea>
-      </div>
-
-      <!-- Bottom Predictions Bar -->
-      <div class="predictions-bar" id="predictions-bar">
-        <div class="predict-col">
-          <h3>CHARS</h3>
-          <div class="predictions-list" id="char-predictions"></div>
-        </div>
-        <div class="predict-col">
-          <h3>WORDS</h3>
-          <div class="predictions-list" id="word-predictions"></div>
-        </div>
-        <div class="predict-col">
-          <h3>PHRASES</h3>
-          <div class="predictions-list" id="phrase-predictions"></div>
-        </div>
-      </div>
-
-      <!-- Toggle Virtual Keyboard -->
-      <div class="keyboard-container" id="keyboard">
-        <!-- Keyboard rows are populated dynamically by app.js -->
+        <textarea id="editor-box" placeholder="Type here..." inputmode="none"></textarea>
       </div>
     </main>
 
-    <!-- Right Column: Saved Actions Macro Grid -->
-    <section class="panel actions-panel">
-      <div class="panel-header">
-        <h2>SAVED ACTIONS</h2>
-        <div class="action-modes">
-          <button id="mode-run" class="mode-btn active">Run</button>
-          <button id="mode-edit" class="mode-btn">Edit</button>
-          <button id="mode-delete" class="mode-btn">Delete</button>
-        </div>
+    <!-- Row 2: Predictions Bar (WORDS on top, PHRASES below) -->
+    <div class="predictions-panel">
+      <div class="prediction-row" id="words-prediction-row">
+        <div class="pred-label">WORDS</div>
+        <div class="prediction-list-wrapper" id="word-predictions"></div>
       </div>
-      <div class="actions-list" id="actions-grid">
-        <!-- Macros are populated dynamically by app.js -->
+      <div class="prediction-row" id="phrases-prediction-row">
+        <div class="pred-label">PHRASES</div>
+        <div class="prediction-list-wrapper" id="phrase-predictions"></div>
+        <span id="phrase-thinking" class="thinking-label" style="display: none;">Thinking...</span>
       </div>
-    </section>
+    </div>
+
+    <!-- Row 3: QWERTY Virtual Keyboard -->
+    <div class="keyboard-panel-wrapper">
+      <div class="keyboard-container" id="keyboard">
+        <!-- Replaced by JavaScript dynamic canvas-like grid rows -->
+      </div>
+    </div>
 
   </div>
 
@@ -108,13 +128,48 @@
           </div>
           <div>
             <label for="font-keyboard">Keyboard Font Size:</label>
-            <input type="number" id="font-keyboard" value="20" min="12" max="40">
+            <input type="number" id="font-keyboard" value="24" min="12" max="40">
           </div>
+        </div>
+
+        <div class="form-group row-group">
+          <div>
+            <label for="min-target-width">Min Target Width (px):</label>
+            <input type="number" id="min-target-width" value="50" min="30" max="150">
+          </div>
+          <div>
+            <label for="min-target-height">Min Target Height (px):</label>
+            <input type="number" id="min-target-height" value="40" min="20" max="100">
+          </div>
+        </div>
+
+        <div class="form-group row-group">
+          <div>
+            <label for="ha-url-input">Home Assistant URL:</label>
+            <input type="text" id="ha-url-input" placeholder="https://xxxx.ui.nabu.casa">
+          </div>
+          <div>
+            <label for="ha-token-input">Home Assistant Token:</label>
+            <input type="password" id="ha-token-input" placeholder="Long-Lived Access Token">
+          </div>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label class="switch-label">
+            <input type="checkbox" id="basins-of-attraction-toggle">
+            Enable Basins of Attraction (Hover Gravity Sizer)
+          </label>
+        </div>
+
+        <div class="form-group backup-restore-buttons">
+          <button id="btn-export-config" class="btn btn-primary">Export Configuration (JSON)</button>
+          <button id="btn-import-config" class="btn btn-warning">Import Configuration (JSON)</button>
+          <input type="file" id="import-file-input" style="display: none;" accept=".json">
         </div>
       </div>
 
       <div class="modal-footer">
-        <button id="btn-settings-close" class="btn btn-secondary">Close</button>
+        <button id="btn-settings-close" class="btn btn-secondary">Close & Save</button>
       </div>
     </div>
   </div>

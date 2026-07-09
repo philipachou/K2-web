@@ -1,5 +1,8 @@
 import os
 import re
+import threading
+import httpx
+import requests
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,21 +25,94 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Set Gemini API Key
+# Set API Keys
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 
 # Initialize Gemini Client if key exists
 client = None
 if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
+# Thread-local storage to track tool executions securely per request
+thread_local = threading.local()
+
+# Define Pydantic Models
 class ChatRequest(BaseModel):
     user_message: str
     history: list[dict]
     profile_summary: str
+    home_assistant_url: str = ""
+    home_assistant_token: str = ""
 
+class PhrasePredictionRequest(BaseModel):
+    text_prefix: str
+    text_suffix: str
+    history: list[dict]
+    profile_summary: str
+
+class TTSRequest(BaseModel):
+    text: str
+
+# Define Gemini Tools
+def speak_phrase(phrase: str) -> str:
+    """Speaks a text phrase out loud using text-to-speech.
+    
+    Args:
+        phrase: The text message to speak out loud.
+    """
+    if hasattr(thread_local, "client_actions"):
+        thread_local.client_actions.append({"type": "speak", "text": phrase})
+    return f"Spoken phrase: '{phrase}'"
+
+def inject_text(text: str) -> str:
+    """Injects a text string into the active window (e.g. typing text for the user).
+    
+    Args:
+        text: The text string to inject/type.
+    """
+    if hasattr(thread_local, "client_actions"):
+        thread_local.client_actions.append({"type": "copy", "text": text})
+    return f"Injected text: '{text}'"
+
+def control_home_assistant(service: str, entity_id: str) -> str:
+    """Control smart home devices connected to Home Assistant.
+    
+    Args:
+        service: The service to execute, e.g. "turn_on", "turn_off", "toggle", "lock", "unlock".
+        entity_id: The target entity ID, e.g. "light.living_room", "switch.smart_plug", "lock.front_door".
+    """
+    url = getattr(thread_local, "ha_url", "")
+    token = getattr(thread_local, "ha_token", "")
+    
+    if not url or not token:
+        msg = f"[Mock HA] Executed service '{service}' on '{entity_id}' successfully."
+        if hasattr(thread_local, "client_actions"):
+            thread_local.client_actions.append({"type": "status", "detail": msg})
+        return msg
+        
+    domain = entity_id.split(".")[0]
+    api_url = f"{url}/api/services/{domain}/{service}"
+    payload = {"entity_id": entity_id}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    
+    try:
+        response = requests.post(api_url, json=payload, headers=headers, timeout=5)
+        if response.status_code in [200, 201]:
+            msg = f"Successfully executed {service} on {entity_id}."
+            if hasattr(thread_local, "client_actions"):
+                thread_local.client_actions.append({"type": "status", "detail": f"Home Assistant: {service} on {entity_id}"})
+            return msg
+        else:
+            return f"Home Assistant service failed: {response.text}"
+    except Exception as e:
+        return f"Error connecting to Home Assistant: {str(e)}"
+
+# Suggestions parsing helper
 def parse_suggestions(text: str) -> tuple[str, list[dict]]:
-    """Helper to parse suggestions out of Gemini response content."""
     suggestions = []
     action_tags = re.findall(r'<action\s+(.*?)>(.*?)</action>', text, re.DOTALL)
     for attrs, action_text in action_tags:
@@ -51,7 +127,6 @@ def parse_suggestions(text: str) -> tuple[str, list[dict]]:
     if not clean_text:
         clean_text = text.split("<suggestions>")[0].strip()
         
-    # Standard default suggestions if parsing yielded nothing
     if not suggestions:
         suggestions = [
             {"tag": "Say Thanks", "action_text": "Say Thank you!"},
@@ -63,32 +138,40 @@ def parse_suggestions(text: str) -> tuple[str, list[dict]]:
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     if not GEMINI_API_KEY or not client:
-        # Return fallback mock responses if no API key is set
         mock_reply = "[Mock Cloud AI] Please configure the GEMINI_API_KEY in your server environment settings."
         mock_sug = [
             {"tag": "Say Hello", "action_text": "Say Hello!"},
             {"tag": "Type Kay", "action_text": "Type Kay"}
         ]
-        return {"reply": mock_reply, "suggestions": mock_sug}
+        return {"reply": mock_reply, "suggestions": mock_sug, "client_actions": []}
+
+    # Initialize request-local variables for tool callback logs
+    thread_local.client_actions = []
+    thread_local.ha_url = request.home_assistant_url
+    thread_local.ha_token = request.home_assistant_token
 
     try:
-        # Build chat context lines from client-provided history
-        lines = []
+        # Build types.Content history from client messages
+        sdk_history = []
         for msg in request.history:
             role = msg.get("role", "user")
             content = msg.get("content", "")
-            if role == "user":
-                lines.append(f"You: {content}")
-            elif role == "cloud_ai":
-                lines.append(f"Cloud AI: {content}")
-            elif role == "system":
-                lines.append(f"System: {content}")
-        chat_context = "\n".join(lines)
+            if not content.strip():
+                continue
+            
+            # Map role names to google-genai standard user/model values
+            sdk_role = "user" if role == "user" else "model"
+            sdk_history.append(
+                types.Content(
+                    role=sdk_role,
+                    parts=[types.Part.from_text(text=content)]
+                )
+            )
 
         system_instruction = (
             "You are K2, an intelligent, assistive Cloud AI for Kay, an ALS patient. "
             "Kay has limited physical control and uses eye-tracking, so keep replies concise (under 3 sentences). "
-            "You must assist her in communicating, writing, or controlling her smart home.\n\n"
+            "You must assist her in communicating, writing, or controlling her smart home using the registered tools.\n\n"
             "At the end of your response, you MUST append a list of exactly three suggested actions that Kay might want to take next, wrapped in a <suggestions> XML block.\n"
             "Each action inside the block must be of the form:\n"
             "  <action tag=\"[button_label]\" description=\"[conversational_choice]\">[action_text_from_user_perspective]</action>\n"
@@ -107,25 +190,95 @@ async def chat(request: ChatRequest):
             "</suggestions>"
         )
 
-        prompt_parts = []
-        if request.profile_summary:
-            prompt_parts.append(request.profile_summary)
-        if chat_context:
-            prompt_parts.append("Recent chat history for context:\n" + chat_context)
-        prompt_parts.append(f"User message: {request.user_message}")
+        user_prompt = (
+            f"Context details:\n{request.profile_summary}\n\n"
+            f"User message: {request.user_message}"
+        )
 
-        response = client.models.generate_content(
+        # Create chat session with tools and automatic function calling
+        chat_session = client.chats.create(
             model="gemini-2.5-flash",
-            contents=prompt_parts,
+            history=sdk_history,
             config=types.GenerateContentConfig(
-                system_instruction=system_instruction
+                system_instruction=system_instruction,
+                tools=[control_home_assistant, speak_phrase, inject_text]
             )
         )
+        
+        response = chat_session.send_message(user_prompt)
         raw_text = response.text.strip()
         
         reply, suggestions = parse_suggestions(raw_text)
-        return {"reply": reply, "suggestions": suggestions}
+        client_actions = getattr(thread_local, "client_actions", [])
         
+        return {
+            "reply": reply,
+            "suggestions": suggestions,
+            "client_actions": client_actions
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/predict-phrases")
+async def predict_phrases(request: PhrasePredictionRequest):
+    if not GEMINI_API_KEY or not client:
+        return {"phrases": ["how are you today?", "thank you very much.", "please help me with this."]}
+        
+    try:
+        lines = []
+        for msg in request.history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                lines.append(f"You: {content}")
+            elif role == "cloud_ai":
+                lines.append(f"Cloud AI: {content}")
+        chat_context = "\n".join(lines)
+
+        full_prefix = request.text_prefix
+        
+        if request.text_suffix.strip():
+            # Infilling FIM prompt
+            prompt = (
+                f"You are a phrase-completion typing assistant. The user is writing a sentence with a cursor in the middle.\n"
+                f"Text before cursor (Prefix): '{full_prefix}'\n"
+                f"Text after cursor (Suffix): '{request.text_suffix}'\n\n"
+                f"Context details:\n"
+                f"{request.profile_summary}\n\n"
+                f"Recent Conversation:\n"
+                f"{chat_context}\n\n"
+                f"Predict exactly three distinct, natural phrase completions that could fill the gap between the Prefix and the Suffix. "
+                f"The completions must make the combined sentence flow naturally and grammatically. "
+                f"Only return a comma-separated list of the completions (lowercase, no prefix or suffix text, no quotes). "
+                f"For example, if Prefix is 'please turn on' and Suffix is 'lights', you might return: 'the, the living room, all of the'."
+            )
+        else:
+            # Continuation prompt
+            prompt = (
+                f"You are a phrase-completion typing assistant. The user has typed the following prefix:\n"
+                f"'{full_prefix}'\n\n"
+                f"Context details:\n"
+                f"{request.profile_summary}\n\n"
+                f"Recent Conversation:\n"
+                f"{chat_context}\n\n"
+                f"Predict exactly three distinct, natural multi-word continuations for the user's typed text. "
+                f"The continuation MUST be relevant to the context. "
+                f"Only return a comma-separated list of the completions (lowercase, no prefix text, no quote marks). "
+                f"For example, if user typed 'turn on', you might return: 'the lights, the television, the fan'."
+            )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.2
+            )
+        )
+        
+        raw_text = response.text.strip().lower()
+        phrases = [p.strip() for p in raw_text.split(",") if p.strip()]
+        return {"phrases": phrases[:3]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -163,7 +316,6 @@ async def transcribe(file: UploadFile = File(...)):
         
         transcript = response.text.strip()
         
-        # Post-process cleanup of common conversational prompt leakages
         cleanup_phrases = [
             "this is a clean verbatim transcript of the audio, as requested.",
             "this is a clean verbatim transcript of the audio as requested.",
@@ -184,10 +336,39 @@ async def transcribe(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/tts")
+async def tts(request: TTSRequest):
+    if not ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=400, detail="ElevenLabs API Key not configured")
+        
+    try:
+        url = "https://api.elevenlabs.io/v1/text-to-speech/Xb7hH8MSUJpSbSDYk0k2"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVENLABS_API_KEY
+        }
+        data = {
+            "text": request.text,
+            "model_id": "eleven_v3",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.5
+            }
+        }
+        async with httpx.AsyncClient() as httpx_client:
+            response = await httpx_client.post(url, json=data, headers=headers, timeout=10.0)
+            if response.status_code == 200:
+                from fastapi.responses import Response
+                return Response(content=response.content, media_type="audio/mpeg")
+            else:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/compile-profile")
 async def compile_profile(profile_text: str = Form(...)):
     if not GEMINI_API_KEY or not client:
-        # Mock compiled response
         return [
             {"category": "User Info", "content": profile_text[:200]}
         ]
