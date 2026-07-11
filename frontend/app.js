@@ -518,13 +518,19 @@ const BIGRAM_MATRIX = {
 
 // --- Global State ---
 let db = null;
-let activeMode = "Edit"; // Edit, Delete, Say, Copy, @CloudAI, Recolor
+let activeMode = "Edit"; // Edit, Delete, @CloudTTS, @LocalTTS, Copy, @CloudAI, Recolor
 let shiftActive = false;
 let previousCaretPosition = 0;
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
 let lastPhraseRequestTime = 0;
+
+// TTS playback tracking state
+let currentPlayingAudio = null;
+let activeTTSAbortController = null;
+let isSpeakingCloud = false;
+let isSpeakingLocal = false;
 
 // Cached settings object to avoid async db reads in rendering loops
 let settings = {
@@ -535,7 +541,8 @@ let settings = {
   basins_of_attraction: 0,
   home_assistant_url: "",
   home_assistant_token: "",
-  biography_text: ""
+  biography_text: "",
+  local_tts_voice: ""
 };
 
 // Macro state tracking
@@ -852,6 +859,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const haUrl = await getSetting("home_assistant_url", "");
   const haToken = await getSetting("home_assistant_token", "");
   const bio = await getSetting("biography_text", "");
+  const localVoice = await getSetting("local_tts_voice", "");
   
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
   document.getElementById("font-editor").value = fontEd;
@@ -872,6 +880,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.home_assistant_url = haUrl;
   settings.home_assistant_token = haToken;
   settings.biography_text = bio;
+  settings.local_tts_voice = localVoice;
+  
+  // Populate local TTS Voice dropdown
+  populateVoiceDropdown();
+  window.speechSynthesis.onvoiceschanged = populateVoiceDropdown;
   
   setupUIBindings();
   setupDwellScrolling("chat-log-scroll");
@@ -886,6 +899,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   editor.setSelectionRange(0, 0);
   previousCaretPosition = 0;
 });
+
+function populateVoiceDropdown() {
+  const select = document.getElementById("local-tts-voice-select");
+  if (!select) return;
+  select.innerHTML = "";
+  
+  const voices = window.speechSynthesis.getVoices();
+  voices.forEach(voice => {
+    const option = document.createElement("option");
+    option.value = voice.name;
+    option.textContent = `${voice.name} (${voice.lang})`;
+    if (voice.name === settings.local_tts_voice) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+}
 
 function setupUIBindings() {
   const editor = document.getElementById("editor-box");
@@ -970,7 +1000,8 @@ function setupUIBindings() {
   });
   
   document.getElementById("btn-dictate").addEventListener("click", toggleDictation);
-  document.getElementById("btn-say").addEventListener("click", () => speakTTS(editor.value));
+  document.getElementById("btn-cloud-tts").addEventListener("click", () => speakCloudTTS(editor.value));
+  document.getElementById("btn-local-tts").addEventListener("click", () => speakLocalTTS(editor.value));
   
   document.getElementById("btn-copy").addEventListener("click", async () => {
     if (!editor.value) return;
@@ -1038,6 +1069,7 @@ function setupUIBindings() {
     const haUrl = document.getElementById("ha-url-input").value;
     const haToken = document.getElementById("ha-token-input").value;
     const bioText = document.getElementById("biography-text").value;
+    const localVoice = document.getElementById("local-tts-voice-select").value;
     
     await setSetting("font_size_editor", fontEd);
     await setSetting("font_size_keyboard", fontKy);
@@ -1047,6 +1079,7 @@ function setupUIBindings() {
     await setSetting("home_assistant_url", haUrl);
     await setSetting("home_assistant_token", haToken);
     await setSetting("biography_text", bioText);
+    await setSetting("local_tts_voice", localVoice);
     
     // Update global settings cache
     settings.font_size_editor = parseInt(fontEd, 10) || 32;
@@ -1057,6 +1090,7 @@ function setupUIBindings() {
     settings.home_assistant_url = haUrl;
     settings.home_assistant_token = haToken;
     settings.biography_text = bioText;
+    settings.local_tts_voice = localVoice;
     
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
     
@@ -1520,8 +1554,10 @@ async function executeActionByMode(tag, action_text) {
     insertTextAtCursor(action_text + " ");
     loadedActionTag = tag;
     editor.focus();
-  } else if (activeMode === "Say") {
-    speakTTS(action_text);
+  } else if (activeMode === "@CloudTTS") {
+    speakCloudTTS(action_text);
+  } else if (activeMode === "@LocalTTS") {
+    speakLocalTTS(action_text);
   } else if (activeMode === "Copy") {
     try {
       await navigator.clipboard.writeText(action_text);
@@ -1658,80 +1694,156 @@ function renderSuggestions(suggestions) {
 }
 
 // --- Voice Synthesis Player ---
-async function speakTTS(text) {
+// --- Voice Synthesis Player ---
+async function speakCloudTTS(text) {
   if (!text.trim()) return;
   
-  const sayBtn = document.getElementById("btn-say");
-  const originalText = sayBtn ? sayBtn.textContent : "Say";
-  if (sayBtn) {
-    sayBtn.disabled = true;
-    sayBtn.textContent = "Speaking...";
+  const cloudBtn = document.getElementById("btn-cloud-tts");
+  const localBtn = document.getElementById("btn-local-tts");
+  
+  // If clicked while already speaking, cancel it!
+  if (isSpeakingCloud) {
+    cancelCloudTTS();
+    return;
   }
   
+  // Start speaking cloud TTS
+  isSpeakingCloud = true;
+  if (cloudBtn) cloudBtn.textContent = "Speaking...";
+  if (localBtn) localBtn.disabled = true;
+  
+  addChatMessage("system", `Speaking (CloudTTS): "${text}"`);
+  renderChatLog();
+  
+  activeTTSAbortController = new AbortController();
+  
   try {
-    // Attempt custom ElevenLabs server stream
     const res = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text }),
+      signal: activeTTSAbortController.signal
     });
     if (res.ok) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      currentPlayingAudio = new Audio(url);
       
-      audio.onplay = () => {
-        if (sayBtn) {
-          sayBtn.disabled = false;
-          sayBtn.textContent = originalText;
-        }
-      };
-      audio.onerror = () => {
-        if (sayBtn) {
-          sayBtn.disabled = false;
-          sayBtn.textContent = originalText;
-        }
+      currentPlayingAudio.onended = () => {
+        resetCloudTTSButtons();
       };
       
-      audio.play();
-      addChatMessage("system", `Spoke (ElevenLabs Alice): "${text}"`);
+      currentPlayingAudio.onerror = () => {
+        resetCloudTTSButtons();
+      };
+      
+      await currentPlayingAudio.play();
+    } else {
+      addChatMessage("system", "Cloud TTS failed. Falling back to local TTS.");
       renderChatLog();
-      return;
+      resetCloudTTSButtons();
+      speakLocalTTS(text);
     }
   } catch (err) {
-    console.warn("ElevenLabs server stream failed, using web fallback:", err);
+    if (err.name !== "AbortError") {
+      console.warn("Cloud TTS failed, using local fallback:", err);
+      speakLocalTTS(text);
+    }
+    resetCloudTTSButtons();
+  }
+}
+
+function cancelCloudTTS() {
+  if (activeTTSAbortController) {
+    activeTTSAbortController.abort();
+    activeTTSAbortController = null;
+  }
+  if (currentPlayingAudio) {
+    currentPlayingAudio.pause();
+    currentPlayingAudio = null;
+  }
+  resetCloudTTSButtons();
+  addChatMessage("system", "CloudTTS speaking cancelled.");
+  renderChatLog();
+}
+
+function resetCloudTTSButtons() {
+  isSpeakingCloud = false;
+  const cloudBtn = document.getElementById("btn-cloud-tts");
+  const localBtn = document.getElementById("btn-local-tts");
+  if (cloudBtn) cloudBtn.textContent = "@CloudTTS";
+  if (localBtn) localBtn.disabled = false;
+}
+
+function speakLocalTTS(text) {
+  if (!text.trim()) return;
+  
+  const cloudBtn = document.getElementById("btn-cloud-tts");
+  const localBtn = document.getElementById("btn-local-tts");
+  
+  // If clicked while already speaking, cancel it!
+  if (isSpeakingLocal) {
+    cancelLocalTTS();
+    return;
   }
   
-  // Browser SpeechSynthesis Fallback
+  // Start speaking local TTS
+  isSpeakingLocal = true;
+  if (localBtn) localBtn.textContent = "Speaking...";
+  if (cloudBtn) cloudBtn.disabled = true;
+  
+  addChatMessage("system", `Speaking (LocalTTS): "${text}"`);
+  renderChatLog();
+  
   try {
+    window.speechSynthesis.cancel(); // Cancel any current speech
+    
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Google")) || voices.find(v => v.lang.startsWith("en-"));
-    if (englishVoice) utterance.voice = englishVoice;
     
-    utterance.onstart = () => {
-      if (sayBtn) {
-        sayBtn.disabled = false;
-        sayBtn.textContent = originalText;
-      }
+    // Find the voice selected in settings
+    let selectedVoice = null;
+    if (settings.local_tts_voice) {
+      selectedVoice = voices.find(v => v.name === settings.local_tts_voice);
+    }
+    
+    // Fallback if no selected voice or not found
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Google")) || voices.find(v => v.lang.startsWith("en-"));
+    }
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    
+    utterance.onend = () => {
+      resetLocalTTSButtons();
     };
+    
     utterance.onerror = () => {
-      if (sayBtn) {
-        sayBtn.disabled = false;
-        sayBtn.textContent = originalText;
-      }
+      resetLocalTTSButtons();
     };
     
     window.speechSynthesis.speak(utterance);
-    addChatMessage("system", `Spoke (Browser Voice): "${text}"`);
-    renderChatLog();
   } catch (err) {
-    console.error("Speech fallback failed:", err);
-    if (sayBtn) {
-      sayBtn.disabled = false;
-      sayBtn.textContent = originalText;
-    }
+    console.error("Local speech failed:", err);
+    resetLocalTTSButtons();
   }
+}
+
+function cancelLocalTTS() {
+  window.speechSynthesis.cancel();
+  resetLocalTTSButtons();
+  addChatMessage("system", "LocalTTS speaking cancelled.");
+  renderChatLog();
+}
+
+function resetLocalTTSButtons() {
+  isSpeakingLocal = false;
+  const cloudBtn = document.getElementById("btn-cloud-tts");
+  const localBtn = document.getElementById("btn-local-tts");
+  if (localBtn) localBtn.textContent = "@LocalTTS";
+  if (cloudBtn) cloudBtn.disabled = false;
 }
 
 // --- Dictation Dictation recording logic ---
