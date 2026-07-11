@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import threading
 import httpx
 import requests
@@ -50,6 +51,11 @@ class PhrasePredictionRequest(BaseModel):
     text_suffix: str
     history: list[dict]
     profile_summary: str
+
+class WordPredictionRequest(BaseModel):
+    history: list[dict]
+    profile_summary: str
+    text_prefix: str
 
 class TTSRequest(BaseModel):
     text: str
@@ -220,6 +226,52 @@ async def chat(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/predict-words")
+async def predict_words(request: WordPredictionRequest):
+    if not GEMINI_API_KEY or not client:
+        return {"predictions": []}
+    try:
+        lines = []
+        for msg in request.history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                lines.append(f"You: {content}")
+            elif role == "cloud_ai":
+                lines.append(f"Cloud AI: {content}")
+        chat_context = "\n".join(lines)
+
+        prompt = (
+            f"Analyze the typing context: '{request.text_prefix}'. "
+            f"Predict the top 15 most likely next words that would follow this context. "
+            f"The predicted words MUST make sense in context of Kay (ALS patient, profile below) and the recent conversation history.\n\n"
+            f"Profile summary details:\n"
+            f"{request.profile_summary}\n\n"
+            f"Recent Conversation:\n"
+            f"{chat_context}\n\n"
+            f"You MUST return ONLY a JSON object of this structure:\n"
+            f'{{"predictions": [{{"word": "project", "weight": 100}}, {{"word": "way", "weight": 80}}]}}\n'
+            f"Where weight is an estimated relative integer weight from 1 to 1000 representing likelihood. "
+            f"Output raw clean JSON only, no markdown markers, no extra text."
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="application/json"
+            )
+        )
+        
+        import json
+        result = json.loads(response.text.strip())
+        predictions = result.get("predictions", [])
+        return {"predictions": predictions}
+    except Exception as e:
+        print(f"Word prediction error: {e}")
+        return {"predictions": []}
+
 @app.post("/api/predict-phrases")
 async def predict_phrases(request: PhrasePredictionRequest):
     if not GEMINI_API_KEY or not client:
@@ -303,6 +355,7 @@ async def transcribe(file: UploadFile = File(...)):
             mime_type=file.content_type or "audio/wav"
         )
         
+        start_time = time.perf_counter()
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[
@@ -313,6 +366,8 @@ async def transcribe(file: UploadFile = File(...)):
                 system_instruction=system_instruction
             )
         )
+        elapsed = time.perf_counter() - start_time
+        print(f"[ASR] Gemini audio transcription took {elapsed:.2f} seconds.")
         
         transcript = response.text.strip()
         
@@ -356,8 +411,11 @@ async def tts(request: TTSRequest):
                 "similarity_boost": 0.5
             }
         }
+        start_time = time.perf_counter()
         async with httpx.AsyncClient() as httpx_client:
             response = await httpx_client.post(url, json=data, headers=headers, timeout=10.0)
+            elapsed = time.perf_counter() - start_time
+            print(f"[TTS] ElevenLabs audio generation took {elapsed:.2f} seconds.")
             if response.status_code == 200:
                 from fastapi.responses import Response
                 return Response(content=response.content, media_type="audio/mpeg")

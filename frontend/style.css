@@ -573,3 +573,30 @@ body {
     height: 300px;
   }
 }
+
+/* --- Prediction Button Prefix Styling --- */
+.predict-btn .prefix {
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-weight: normal;
+}
+
+/* --- Disabled Button / Speaking Indicator Style --- */
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* --- Chat Thinking Bubble Animation --- */
+.chat-message.cloud_ai.thinking {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--color-warning);
+  font-style: italic;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1.0; }
+  100% { opacity: 0.6; }
+}

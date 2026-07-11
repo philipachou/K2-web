@@ -526,6 +526,24 @@ let mediaRecorder = null;
 let audioChunks = [];
 let lastPhraseRequestTime = 0;
 
+// Cached settings object to avoid async db reads in rendering loops
+let settings = {
+  font_size_editor: 32,
+  font_size_keyboard: 24,
+  min_target_width: 50,
+  min_target_height: 40,
+  basins_of_attraction: 0,
+  home_assistant_url: "",
+  home_assistant_token: "",
+  biography_text: ""
+};
+
+// Macro state tracking
+let loadedActionTag = null;
+
+// Next-word prediction context cache
+let lastApiPredictions = [];
+
 // --- IndexedDB Setup ---
 const DB_NAME = "k2_web_db";
 const DB_VERSION = 1;
@@ -595,7 +613,7 @@ function saveAction(tag, action_text, color = null) {
   return new Promise((resolve) => {
     const txn = db.transaction("saved_actions", "readwrite");
     const store = txn.objectStore("saved_actions");
-    store.put({ tag, action_text, color });
+    store.put({ tag, action_text, color, timestamp: Date.now() });
     txn.oncomplete = () => resolve();
   });
 }
@@ -708,26 +726,46 @@ function getBlendedCharProbabilities(prefix) {
     return staticProbs;
   }
   
-  let bucketProbs = {};
-  let matches = DICTIONARY.filter(w => w.word.startsWith(currentWordPrefix));
-  let matchSum = matches.reduce((sum, item) => sum + item.weight, 0);
+  // Find matches in local dictionary and cached API predictions
+  const dictMatches = DICTIONARY.filter(w => w.word.startsWith(currentWordPrefix));
+  const apiMatches = lastApiPredictions.filter(w => w.word.startsWith(currentWordPrefix));
   
-  if (matchSum > 0) {
-    matches.forEach(item => {
-      const word = item.word;
-      const prob = item.weight / matchSum;
-      if (word.length > currentWordPrefix.length) {
-        const nextChar = word[currentWordPrefix.length];
-        if ("abcdefghijklmnopqrstuvwxyz ".includes(nextChar)) {
-          bucketProbs[nextChar] = (bucketProbs[nextChar] || 0) + prob;
-        }
-      } else if (word.length === currentWordPrefix.length) {
-        bucketProbs[" "] = (bucketProbs[" "] || 0) + prob;
+  const dictSum = dictMatches.reduce((sum, item) => sum + item.weight, 0);
+  const apiSum = apiMatches.reduce((sum, item) => sum + item.weight, 0);
+  
+  // Combine all unique words
+  const allWordSet = new Set([
+    ...dictMatches.map(m => m.word),
+    ...apiMatches.map(m => m.word)
+  ]);
+  
+  let candidateProbs = {};
+  const alpha = apiSum > 0 ? 0.6 : 0.0; // Blend weight: 60% API, 40% Dict
+  
+  allWordSet.forEach(word => {
+    const dictMatch = dictMatches.find(m => m.word === word);
+    const apiMatch = apiMatches.find(m => m.word === word);
+    
+    const pDict = dictSum > 0 && dictMatch ? (dictMatch.weight / dictSum) : 0.0;
+    const pApi = apiSum > 0 && apiMatch ? (apiMatch.weight / apiSum) : 0.0;
+    
+    candidateProbs[word] = alpha * pApi + (1.0 - alpha) * pDict;
+  });
+  
+  let bucketProbs = {};
+  for (const word in candidateProbs) {
+    const prob = candidateProbs[word];
+    if (word.length > currentWordPrefix.length) {
+      const nextChar = word[currentWordPrefix.length];
+      if ("abcdefghijklmnopqrstuvwxyz ".includes(nextChar)) {
+        bucketProbs[nextChar] = (bucketProbs[nextChar] || 0) + prob;
       }
-    });
+    } else if (word.length === currentWordPrefix.length) {
+      bucketProbs[" "] = (bucketProbs[" "] || 0) + prob;
+    }
   }
   
-  const beta = 0.7; // Blending factor (0.7 word list context, 0.3 bigram priors)
+  const beta = 0.7; // 70% word context, 30% bigram priors
   let blended = {};
   const alphabet = "abcdefghijklmnopqrstuvwxyz ";
   for (let i = 0; i < alphabet.length; i++) {
@@ -825,6 +863,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("ha-token-input").value = haToken;
   document.getElementById("biography-text").value = bio;
   
+  // Cache globally
+  settings.font_size_editor = parseInt(fontEd, 10) || 32;
+  settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
+  settings.min_target_width = parseInt(minW, 10) || 50;
+  settings.min_target_height = parseInt(minH, 10) || 40;
+  settings.basins_of_attraction = basins === "1" ? 1 : 0;
+  settings.home_assistant_url = haUrl;
+  settings.home_assistant_token = haToken;
+  settings.biography_text = bio;
+  
   setupUIBindings();
   setupDwellScrolling("chat-log-scroll");
   setupDwellScrolling("actions-grid");
@@ -906,6 +954,7 @@ function setupUIBindings() {
   document.getElementById("btn-clear").addEventListener("click", () => {
     editor.value = "";
     previousCaretPosition = 0;
+    loadedActionTag = null; // Clear macro tracking when editor is cleared
     updatePredictionsAndKeyboard();
     editor.focus();
   });
@@ -938,13 +987,35 @@ function setupUIBindings() {
   
   document.getElementById("btn-save").addEventListener("click", async () => {
     if (!editor.value.trim()) return;
-    const tag = prompt("Enter a short tag/label for this macro button:");
-    if (!tag) return;
-    await saveAction(tag, editor.value);
-    renderSavedActions();
+    
+    if (loadedActionTag) {
+      // Overwrite the currently loaded macro directly
+      await saveAction(loadedActionTag, editor.value);
+      renderSavedActions();
+      addChatMessage("system", `Saved changes to macro "${loadedActionTag}"`);
+      renderChatLog();
+    } else {
+      // Act like Save As
+      const tag = prompt("Enter a short tag/label for this macro button:");
+      if (!tag) return;
+      await saveAction(tag, editor.value);
+      loadedActionTag = tag;
+      renderSavedActions();
+    }
+    editor.focus();
   });
 
-  // Action Panel Modes
+  document.getElementById("btn-save-as").addEventListener("click", async () => {
+    if (!editor.value.trim()) return;
+    const tag = prompt("Save As... Enter a new tag/label for this macro:");
+    if (!tag) return;
+    await saveAction(tag, editor.value);
+    loadedActionTag = tag;
+    renderSavedActions();
+    editor.focus();
+  });
+
+  // Action Mode triggers
   document.querySelectorAll(".action-modes .mode-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".action-modes .mode-btn").forEach(b => b.classList.remove("active"));
@@ -976,6 +1047,16 @@ function setupUIBindings() {
     await setSetting("home_assistant_url", haUrl);
     await setSetting("home_assistant_token", haToken);
     await setSetting("biography_text", bioText);
+    
+    // Update global settings cache
+    settings.font_size_editor = parseInt(fontEd, 10) || 32;
+    settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
+    settings.min_target_width = parseInt(minW, 10) || 50;
+    settings.min_target_height = parseInt(minH, 10) || 40;
+    settings.basins_of_attraction = basins === "1" ? 1 : 0;
+    settings.home_assistant_url = haUrl;
+    settings.home_assistant_token = haToken;
+    settings.biography_text = bioText;
     
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
     
@@ -1065,10 +1146,11 @@ function deleteWord() {
 function updatePredictionsAndKeyboard() {
   const editor = document.getElementById("editor-box");
   const text = editor.value;
-  const caret = editor.selectionStart;
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
   
-  const textBefore = text.substring(0, caret);
-  const textAfter = text.substring(caret);
+  const textBefore = text.substring(0, start);
+  const textAfter = text.substring(end);
   
   // Calculate current word prefix matching
   const lastSpace = textBefore.lastIndexOf(" ");
@@ -1077,26 +1159,55 @@ function updatePredictionsAndKeyboard() {
   // 1. Core Character Probability Calculation (blended)
   const charProbs = getBlendedCharProbabilities(textBefore);
   
-  // 2. Word Predictions: Filter words starting with current typed prefix, sort by weight descending
+  // 2. Word Predictions: Filter words starting with current typed prefix, blend & sort by weight descending
   let wordCompletions = [];
   if (wordPrefix) {
-    wordCompletions = DICTIONARY.filter(item => item.word.startsWith(wordPrefix) && item.word !== wordPrefix)
-                                .sort((a, b) => b.weight - a.weight)
-                                .map(item => item.word);
+    const dictMatches = DICTIONARY.filter(w => w.word.startsWith(wordPrefix));
+    const apiMatches = lastApiPredictions.filter(w => w.word.startsWith(wordPrefix));
+    
+    const dictSum = dictMatches.reduce((sum, item) => sum + item.weight, 0);
+    const apiSum = apiMatches.reduce((sum, item) => sum + item.weight, 0);
+    
+    const allWordSet = new Set([
+      ...dictMatches.map(m => m.word),
+      ...apiMatches.map(m => m.word)
+    ]);
+    
+    const alpha = apiSum > 0 ? 0.6 : 0.0;
+    let blendedList = [];
+    allWordSet.forEach(word => {
+      const dictMatch = dictMatches.find(m => m.word === word);
+      const apiMatch = apiMatches.find(m => m.word === word);
+      
+      const pDict = dictSum > 0 && dictMatch ? (dictMatch.weight / dictSum) : 0.0;
+      const pApi = apiSum > 0 && apiMatch ? (apiMatch.weight / apiSum) : 0.0;
+      
+      const prob = alpha * pApi + (1.0 - alpha) * pDict;
+      blendedList.push({ word, prob });
+    });
+    
+    blendedList.sort((a, b) => b.prob - a.prob);
+    wordCompletions = blendedList.map(item => item.word);
   } else {
-    // Offer most common words if not typing a word prefix
-    wordCompletions = DICTIONARY.slice().sort((a, b) => b.weight - a.weight).map(item => item.word);
+    // Word boundary: Offer cached next-word predictions if available, else static commons
+    if (lastApiPredictions.length > 0) {
+      wordCompletions = lastApiPredictions.map(item => item.word);
+    } else {
+      wordCompletions = DICTIONARY.slice().sort((a, b) => b.weight - a.weight).map(item => item.word);
+    }
   }
   renderWordPredictions(wordCompletions.slice(0, 10), wordPrefix);
   
-  // 3. Phrase Predictions: Trigger only at word boundaries (empty prefix) to throttle cloud costs
-  const isBoundary = (textBefore.length === 0 || textBefore.endsWith(" "));
+  // 3. Phrase Predictions & Next-Word Background Predictions Fetch: Trigger at word boundaries
+  const isBoundary = (textBefore.length === 0 || textBefore.endsWith(" ") || textBefore.endsWith("\n") || textBefore.endsWith("\r"));
   if (isBoundary) {
     const now = Date.now();
     // Debounce cloud calls: 400ms delay window
     if (now - lastPhraseRequestTime > 400) {
       lastPhraseRequestTime = now;
       executeFetchPhrases(textBefore, textAfter);
+      // Fetch Word Predictions from Backend asynchronously in the background
+      executeFetchWords(textBefore, wordPrefix);
     }
   } else {
     // Clear phrase completions inside the middle of a word
@@ -1107,6 +1218,82 @@ function updatePredictionsAndKeyboard() {
   renderKeyboard(charProbs);
 }
 
+// Separate helper for async API updates to prevent fetch loops
+function updatePredictionsAndKeyboardOnly() {
+  const editor = document.getElementById("editor-box");
+  const text = editor.value;
+  const start = editor.selectionStart;
+  const textBefore = text.substring(0, start);
+  
+  const lastSpace = textBefore.lastIndexOf(" ");
+  const wordPrefix = lastSpace === -1 ? textBefore.toLowerCase() : textBefore.substring(lastSpace + 1).toLowerCase();
+  
+  const charProbs = getBlendedCharProbabilities(textBefore);
+  
+  let wordCompletions = [];
+  if (wordPrefix) {
+    const dictMatches = DICTIONARY.filter(w => w.word.startsWith(wordPrefix));
+    const apiMatches = lastApiPredictions.filter(w => w.word.startsWith(wordPrefix));
+    
+    const dictSum = dictMatches.reduce((sum, item) => sum + item.weight, 0);
+    const apiSum = apiMatches.reduce((sum, item) => sum + item.weight, 0);
+    
+    const allWordSet = new Set([
+      ...dictMatches.map(m => m.word),
+      ...apiMatches.map(m => m.word)
+    ]);
+    
+    const alpha = apiSum > 0 ? 0.6 : 0.0;
+    let blendedList = [];
+    allWordSet.forEach(word => {
+      const dictMatch = dictMatches.find(m => m.word === word);
+      const apiMatch = apiMatches.find(m => m.word === word);
+      
+      const pDict = dictSum > 0 && dictMatch ? (dictMatch.weight / dictSum) : 0.0;
+      const pApi = apiSum > 0 && apiMatch ? (apiMatch.weight / apiSum) : 0.0;
+      
+      const prob = alpha * pApi + (1.0 - alpha) * pDict;
+      blendedList.push({ word, prob });
+    });
+    
+    blendedList.sort((a, b) => b.prob - a.prob);
+    wordCompletions = blendedList.map(item => item.word);
+  } else {
+    if (lastApiPredictions.length > 0) {
+      wordCompletions = lastApiPredictions.map(item => item.word);
+    } else {
+      wordCompletions = DICTIONARY.slice().sort((a, b) => b.weight - a.weight).map(item => item.word);
+    }
+  }
+  renderWordPredictions(wordCompletions.slice(0, 10), wordPrefix);
+  renderKeyboard(charProbs);
+}
+
+async function executeFetchWords(textBefore, prefix) {
+  const history = await getChatHistory();
+  const summaryList = await getPersonalSummary();
+  const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
+  
+  try {
+    const res = await fetch("/api/predict-words", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        history,
+        profile_summary,
+        text_prefix: textBefore
+      })
+    });
+    const data = await res.json();
+    if (data.predictions && Array.isArray(data.predictions)) {
+      lastApiPredictions = data.predictions;
+      updatePredictionsAndKeyboardOnly();
+    }
+  } catch (err) {
+    console.error("Word predictions API failed:", err);
+  }
+}
+
 function renderWordPredictions(words, prefix) {
   const container = document.getElementById("word-predictions");
   container.innerHTML = "";
@@ -1115,9 +1302,9 @@ function renderWordPredictions(words, prefix) {
     const btn = document.createElement("button");
     btn.className = "predict-btn";
     
-    // Highlight suffix text
+    // Highlight suffix text and gray out prefix
     if (prefix && word.startsWith(prefix)) {
-      btn.textContent = `..${word.substring(prefix.length)}`;
+      btn.innerHTML = `<span class="prefix">${prefix}</span>${word.substring(prefix.length)}`;
     } else {
       btn.textContent = word;
     }
@@ -1133,6 +1320,10 @@ function renderWordPredictions(words, prefix) {
       editor.value = newTextBefore + currentText.substring(start);
       editor.selectionStart = editor.selectionEnd = newTextBefore.length;
       previousCaretPosition = editor.selectionStart;
+      
+      // Clear cached predictions on selection boundary trigger
+      lastApiPredictions = [];
+      
       updatePredictionsAndKeyboard();
       editor.focus();
     };
@@ -1197,8 +1388,7 @@ function renderPhrasePredictions(phrases, textBefore, textAfter) {
   });
 }
 
-// --- Keyboard Sizing & Dynamic Attraction Basins ---
-async function renderKeyboard(probabilities) {
+function renderKeyboard(probabilities) {
   const container = document.getElementById("keyboard");
   container.innerHTML = "";
   
@@ -1210,7 +1400,7 @@ async function renderKeyboard(probabilities) {
     ["Shift", "Space", "Backspace"]
   ];
   
-  const fontKy = await getSetting("font_size_keyboard", "24");
+  const fontKy = settings.font_size_keyboard;
   const maxObserved = Math.max(...Object.values(probabilities));
   
   layout.forEach((row, rowIdx) => {
@@ -1283,12 +1473,15 @@ async function renderKeyboard(probabilities) {
   });
 }
 
-// --- Actions Panel Rendering & Operation Modes ---
 async function renderSavedActions() {
   const grid = document.getElementById("actions-grid");
   grid.innerHTML = "";
   
   const saved = await getSavedActions();
+  
+  // Sort chronologically (latest last)
+  saved.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  
   saved.forEach(action => {
     const card = document.createElement("div");
     card.className = "action-card";
@@ -1325,6 +1518,7 @@ async function executeActionByMode(tag, action_text) {
   if (activeMode === "Edit") {
     // Insert text at cursor, trailing space, leaving selection caret at end
     insertTextAtCursor(action_text + " ");
+    loadedActionTag = tag;
     editor.focus();
   } else if (activeMode === "Say") {
     speakTTS(action_text);
@@ -1368,7 +1562,16 @@ async function executeSendCloud() {
   renderChatLog();
   editor.value = "";
   previousCaretPosition = 0;
+  loadedActionTag = null; // Clear macro selection
   updatePredictionsAndKeyboard();
+  
+  // Show temporary "Thinking..." bubble in chat log
+  const log = document.getElementById("chat-log-scroll");
+  const thinkingDiv = document.createElement("div");
+  thinkingDiv.className = "chat-message cloud_ai thinking";
+  thinkingDiv.textContent = "Cloud AI is thinking...";
+  log.appendChild(thinkingDiv);
+  log.scrollTop = log.scrollHeight;
   
   const history = await getChatHistory();
   const summaryList = await getPersonalSummary();
@@ -1376,6 +1579,9 @@ async function executeSendCloud() {
   
   const haUrl = await getSetting("home_assistant_url", "");
   const haToken = await getSetting("home_assistant_token", "");
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
   
   try {
     const res = await fetch("/api/chat", {
@@ -1387,8 +1593,15 @@ async function executeSendCloud() {
         profile_summary,
         home_assistant_url: haUrl,
         home_assistant_token: haToken
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
+    
+    // Remove "Thinking..." bubble
+    thinkingDiv.remove();
+    
     const data = await res.json();
     if (data.reply) {
       await addChatMessage("cloud_ai", data.reply);
@@ -1416,7 +1629,13 @@ async function executeSendCloud() {
       }
     }
   } catch (err) {
-    console.error("Cloud chat request failed:", err);
+    clearTimeout(timeoutId);
+    if (thinkingDiv.parentNode) {
+      thinkingDiv.remove();
+    }
+    console.error("Cloud chat request failed or timed out:", err);
+    addChatMessage("system", "Cloud AI request timed out. Please try again.");
+    renderChatLog();
   }
 }
 
@@ -1442,6 +1661,13 @@ function renderSuggestions(suggestions) {
 async function speakTTS(text) {
   if (!text.trim()) return;
   
+  const sayBtn = document.getElementById("btn-say");
+  const originalText = sayBtn ? sayBtn.textContent : "Say";
+  if (sayBtn) {
+    sayBtn.disabled = true;
+    sayBtn.textContent = "Speaking...";
+  }
+  
   try {
     // Attempt custom ElevenLabs server stream
     const res = await fetch("/api/tts", {
@@ -1453,6 +1679,20 @@ async function speakTTS(text) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      
+      audio.onplay = () => {
+        if (sayBtn) {
+          sayBtn.disabled = false;
+          sayBtn.textContent = originalText;
+        }
+      };
+      audio.onerror = () => {
+        if (sayBtn) {
+          sayBtn.disabled = false;
+          sayBtn.textContent = originalText;
+        }
+      };
+      
       audio.play();
       addChatMessage("system", `Spoke (ElevenLabs Alice): "${text}"`);
       renderChatLog();
@@ -1463,14 +1703,35 @@ async function speakTTS(text) {
   }
   
   // Browser SpeechSynthesis Fallback
-  const utterance = new SpeechSynthesisUtterance(text);
-  const voices = window.speechSynthesis.getVoices();
-  const englishVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Google")) || voices.find(v => v.lang.startsWith("en-"));
-  if (englishVoice) utterance.voice = englishVoice;
-  
-  window.speechSynthesis.speak(utterance);
-  addChatMessage("system", `Spoke (Browser Voice): "${text}"`);
-  renderChatLog();
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Google")) || voices.find(v => v.lang.startsWith("en-"));
+    if (englishVoice) utterance.voice = englishVoice;
+    
+    utterance.onstart = () => {
+      if (sayBtn) {
+        sayBtn.disabled = false;
+        sayBtn.textContent = originalText;
+      }
+    };
+    utterance.onerror = () => {
+      if (sayBtn) {
+        sayBtn.disabled = false;
+        sayBtn.textContent = originalText;
+      }
+    };
+    
+    window.speechSynthesis.speak(utterance);
+    addChatMessage("system", `Spoke (Browser Voice): "${text}"`);
+    renderChatLog();
+  } catch (err) {
+    console.error("Speech fallback failed:", err);
+    if (sayBtn) {
+      sayBtn.disabled = false;
+      sayBtn.textContent = originalText;
+    }
+  }
 }
 
 // --- Dictation Dictation recording logic ---
@@ -1497,11 +1758,16 @@ async function toggleDictation() {
         const formData = new FormData();
         formData.append("file", audioBlob, "recording.wav");
         
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+        
         try {
           const res = await fetch("/api/transcribe", {
             method: "POST",
-            body: formData
+            body: formData,
+            signal: controller.signal
           });
+          clearTimeout(timeoutId);
           const data = await res.json();
           if (data.transcript && !data.transcript.startsWith("Mock")) {
             insertTextAtCursor(data.transcript + " ");
@@ -1510,7 +1776,10 @@ async function toggleDictation() {
             renderChatLog();
           }
         } catch (err) {
-          console.error(err);
+          clearTimeout(timeoutId);
+          console.error("Transcription request failed or timed out:", err);
+          addChatMessage("system", "Transcription request timed out. Please try again.");
+          renderChatLog();
         } finally {
           dictateBtn.textContent = "Dictate";
           dictateBtn.className = "btn btn-teal";
