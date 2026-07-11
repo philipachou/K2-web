@@ -64,6 +64,44 @@ body {
   overflow: hidden;
 }
 
+/* Labeled Panel System */
+.labeled-panel {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+}
+
+.panel-label {
+  background: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid var(--glass-border);
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 10px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+  width: 30px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
 .chat-panel {
   flex: 1;
 }
@@ -218,11 +256,13 @@ body {
 }
 
 /* --- Row 1: Main Editor Pane --- */
-.editor-row-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.editor-panel {
   flex-shrink: 0;
+}
+
+.editor-body {
+  padding: 6px;
+  gap: 6px;
 }
 
 .edit-toolbar {
@@ -299,14 +339,15 @@ body {
 
 /* --- Row 2: Predictions Panel --- */
 .predictions-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   background: rgba(15, 23, 42, 0.4);
   border: 1px solid var(--glass-border);
   border-radius: 8px;
-  padding: 6px;
   flex-shrink: 0;
+}
+
+.predictions-body {
+  padding: 6px;
+  gap: 4px;
 }
 
 .prediction-row {
@@ -394,6 +435,7 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 8px;
+  flex: 1;
 }
 
 .keyboard-row {

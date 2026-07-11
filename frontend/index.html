@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <div class="app-container">
@@ -18,94 +18,103 @@
     <!-- Row 0: Chat Log (Left) & Actions Panel (Right) -->
     <div class="top-row">
       <!-- Left Column: Chat Conversation Panel -->
-      <section class="panel chat-panel" id="chat-panel">
-        <div class="panel-header">
-          <h2>CHAT LOG</h2>
-        </div>
-        <div class="chat-log" id="chat-log-scroll">
-          <!-- Messages are rendered dynamically by app.js -->
-          <div class="system-message">System initialized. Ready.</div>
+      <section class="panel chat-panel labeled-panel" id="chat-panel">
+        <div class="panel-label">Chat Log</div>
+        <div class="panel-body">
+          <div class="chat-log" id="chat-log-scroll">
+            <!-- Messages are rendered dynamically by app.js -->
+            <div class="system-message">System initialized. Ready.</div>
+          </div>
         </div>
       </section>
 
       <!-- Right Column: Saved Actions Macro Grid -->
-      <section class="panel actions-panel">
-        <div class="panel-header">
-          <h2>SAVED ACTIONS</h2>
-          <div class="actions-header-controls">
-            <!-- Mode selectors -->
-            <div class="action-modes">
-              <button id="mode-delete" class="mode-btn">Delete</button>
-              <button id="mode-edit" class="mode-btn active">Edit</button>
-              <button id="mode-cloud-tts" class="mode-btn">@CloudTTS</button>
-              <button id="mode-local-tts" class="mode-btn">@LocalTTS</button>
-              <button id="mode-copy" class="mode-btn">Copy</button>
-              <button id="mode-cloud" class="mode-btn">@CloudAI</button>
-              <button id="mode-recolor" class="mode-btn">Recolor</button>
+      <section class="panel actions-panel labeled-panel">
+        <div class="panel-label">Actions</div>
+        <div class="panel-body">
+          <div class="panel-header">
+            <div class="actions-header-controls">
+              <!-- Mode selectors -->
+              <div class="action-modes">
+                <button id="mode-delete" class="mode-btn">Delete</button>
+                <button id="mode-edit" class="mode-btn active">Edit</button>
+                <button id="mode-cloud-tts" class="mode-btn">@CloudTTS</button>
+                <button id="mode-local-tts" class="mode-btn">@LocalTTS</button>
+                <button id="mode-copy" class="mode-btn">Copy</button>
+                <button id="mode-cloud" class="mode-btn">@CloudAI</button>
+                <button id="mode-recolor" class="mode-btn">Recolor</button>
+              </div>
+              <!-- Recolor dropdown -->
+              <select id="action-color-select" class="dropdown-select">
+                <option value="Blue" selected>Blue</option>
+                <option value="Green">Green</option>
+                <option value="Red">Red</option>
+                <option value="Orange">Orange</option>
+                <option value="Purple">Purple</option>
+                <option value="Yellow">Yellow</option>
+                <option value="Teal">Teal</option>
+                <option value="Pink">Pink</option>
+                <option value="Gray">Gray</option>
+              </select>
             </div>
-            <!-- Recolor dropdown -->
-            <select id="action-color-select" class="dropdown-select">
-              <option value="Blue" selected>Blue</option>
-              <option value="Green">Green</option>
-              <option value="Red">Red</option>
-              <option value="Orange">Orange</option>
-              <option value="Purple">Purple</option>
-              <option value="Yellow">Yellow</option>
-              <option value="Teal">Teal</option>
-              <option value="Pink">Pink</option>
-              <option value="Gray">Gray</option>
-            </select>
           </div>
-        </div>
-        <div class="actions-list" id="actions-grid">
-          <!-- Macros are populated dynamically by app.js -->
-        </div>
-        <!-- Hover Preview Bar -->
-        <div class="actions-preview-bar" id="actions-preview">
-          Hover over an action to preview...
+          <div class="actions-list" id="actions-grid">
+            <!-- Macros are populated dynamically by app.js -->
+          </div>
+          <!-- Hover Preview Bar -->
+          <div class="actions-preview-bar" id="actions-preview">
+            Hover over an action to preview...
+          </div>
         </div>
       </section>
     </div>
 
     <!-- Row 1: Editor Toolbar & Editor Text Box -->
-    <main class="editor-row-panel">
-      <!-- Top Edit Toolbar -->
-      <div class="edit-toolbar">
-        <button id="btn-clear" class="btn btn-danger">Del All</button>
-        <button id="btn-del-word" class="btn btn-secondary">Del Word</button>
-        <button id="btn-del-char" class="btn btn-secondary">Del Char</button>
-        <button id="btn-dictate" class="btn btn-teal">Dictate</button>
-        <button id="btn-cloud-tts" class="btn btn-success">@CloudTTS</button>
-        <button id="btn-local-tts" class="btn btn-success">@LocalTTS</button>
-        <button id="btn-copy" class="btn btn-success">Copy</button>
-        <button id="btn-cloud" class="btn btn-primary">@CloudAI</button>
-        <button id="btn-save" class="btn btn-warning">Save</button>
-        <button id="btn-save-as" class="btn btn-warning">Save As...</button>
-        <button id="btn-settings" class="btn btn-settings-icon">&#9881;</button>
-      </div>
+    <main class="panel editor-panel labeled-panel">
+      <div class="panel-label">Editor</div>
+      <div class="panel-body editor-body">
+        <!-- Top Edit Toolbar -->
+        <div class="edit-toolbar">
+          <button id="btn-clear" class="btn btn-danger">Del All</button>
+          <button id="btn-del-word" class="btn btn-secondary">Del Word</button>
+          <button id="btn-del-char" class="btn btn-secondary">Del Char</button>
+          <button id="btn-dictate" class="btn btn-teal">Dictate</button>
+          <button id="btn-cloud-tts" class="btn btn-success">@CloudTTS</button>
+          <button id="btn-local-tts" class="btn btn-success">@LocalTTS</button>
+          <button id="btn-copy" class="btn btn-success">Copy</button>
+          <button id="btn-cloud" class="btn btn-primary">@CloudAI</button>
+          <button id="btn-save" class="btn btn-warning">Save</button>
+          <button id="btn-save-as" class="btn btn-warning">Save As...</button>
+          <button id="btn-settings" class="btn btn-settings-icon">&#9881;</button>
+        </div>
 
-      <!-- Editor Text Box (inputmode="none" to prevent virtual OS keyboard) -->
-      <div class="textbox-wrapper">
-        <textarea id="editor-box" placeholder="Type here..." inputmode="none"></textarea>
+        <!-- Editor Text Box (inputmode="none" to prevent virtual OS keyboard) -->
+        <div class="textbox-wrapper">
+          <textarea id="editor-box" placeholder="Type here..." inputmode="none"></textarea>
+        </div>
       </div>
     </main>
 
     <!-- Row 2: Predictions Bar (WORDS on top, PHRASES below) -->
-    <div class="predictions-panel">
-      <div class="prediction-row" id="words-prediction-row">
-        <div class="pred-label">WORDS</div>
-        <div class="prediction-list-wrapper" id="word-predictions"></div>
-      </div>
-      <div class="prediction-row" id="phrases-prediction-row">
-        <div class="pred-label">PHRASES</div>
-        <div class="prediction-list-wrapper" id="phrase-predictions"></div>
-        <span id="phrase-thinking" class="thinking-label" style="display: none;">Thinking...</span>
+    <div class="predictions-panel labeled-panel">
+      <div class="panel-label">Predictor</div>
+      <div class="panel-body predictions-body">
+        <div class="prediction-row" id="words-prediction-row">
+          <div class="pred-label">WORDS</div>
+          <div class="prediction-list-wrapper" id="word-predictions"></div>
+        </div>
+        <div class="prediction-row" id="phrases-prediction-row">
+          <div class="pred-label">PHRASES</div>
+          <div class="prediction-list-wrapper" id="phrase-predictions"></div>
+          <span id="phrase-thinking" class="thinking-label" style="display: none;">Thinking...</span>
+        </div>
       </div>
     </div>
 
     <!-- Row 3: QWERTY Virtual Keyboard -->
-    <div class="keyboard-panel-wrapper">
-      <div class="keyboard-container" id="keyboard">
+    <div class="keyboard-panel-wrapper labeled-panel">
+      <div class="panel-label" style="border: 1px solid var(--glass-border); border-radius: 12px 0 0 12px; border-right: none; background: rgba(15, 23, 42, 0.55);">Keyboard</div>
+      <div class="keyboard-container" id="keyboard" style="border-radius: 0 12px 12px 0;">
         <!-- Replaced by JavaScript dynamic canvas-like grid rows -->
       </div>
     </div>
