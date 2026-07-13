@@ -14,6 +14,7 @@
   --color-teal: #0d9488;      /* Teal */
   --color-text: #f3f4f6;      /* Off-white */
   --color-text-muted: #9ca3af;/* Grey */
+  --hover-brightness: 1.2;
 }
 
 * {
@@ -238,7 +239,6 @@ body {
 }
 
 .action-card:hover {
-  filter: brightness(1.25);
   border-color: var(--color-text);
 }
 
@@ -287,18 +287,16 @@ body {
   white-space: nowrap;
 }
 
+.btn:hover {
+  filter: brightness(var(--hover-brightness));
+}
+
 .btn-secondary { background: #475569; }
-.btn-secondary:hover { background: #334155; }
 .btn-danger { background: var(--color-danger); }
-.btn-danger:hover { background: #b91c1c; }
 .btn-teal { background: var(--color-teal); color: #000; }
-.btn-teal:hover { background: #0f766e; color: #fff; }
 .btn-success { background: var(--color-success); color: #000; }
-.btn-success:hover { background: #047857; color: #fff; }
 .btn-primary { background: var(--color-primary); }
-.btn-primary:hover { background: #1d4ed8; }
 .btn-warning { background: var(--color-warning); }
-.btn-warning:hover { background: #d97706; }
 
 .btn-settings-icon {
   background: rgba(255, 255, 255, 0.1);
@@ -309,9 +307,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.btn-settings-icon:hover {
-  background: rgba(255, 255, 255, 0.2);
 }
 
 .textbox-wrapper {
@@ -397,7 +392,6 @@ body {
   min-height: 32px;
 }
 .predict-btn:hover {
-  background: rgba(16, 185, 129, 0.2);
   border-color: var(--color-success);
 }
 
@@ -471,9 +465,7 @@ body {
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
-.key:hover {
-  filter: brightness(1.2);
-}
+/* Key hover handled by unified selector */
 
 /* --- Settings Modal --- */
 .modal-overlay {
@@ -641,4 +633,15 @@ body {
   0% { opacity: 0.6; }
   50% { opacity: 1.0; }
   100% { opacity: 0.6; }
+}
+
+/* --- Unified Hover Feedback System --- */
+.btn:hover,
+.mode-btn:hover,
+.action-card:hover,
+.predict-btn:hover,
+.key:hover,
+.dropdown-select:hover {
+  filter: brightness(var(--hover-brightness)) !important;
+  transition: filter 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }

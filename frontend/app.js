@@ -546,7 +546,8 @@ let settings = {
   home_assistant_url: "",
   home_assistant_token: "",
   biography_text: "",
-  local_tts_voice: ""
+  local_tts_voice: "",
+  hover_brightness: 1.2
 };
 
 // Macro state tracking
@@ -688,6 +689,7 @@ async function seedDefaults() {
     await setSetting("min_target_width", "50");
     await setSetting("min_target_height", "40");
     await setSetting("basins_of_attraction", "0");
+    await setSetting("hover_brightness", "1.2");
     await setSetting("biography_text", "Name: Kay. Patient diagnosed with ALS.\nHusband: Phil. Family visits frequently.\nInterests: Loves science fiction and smart home tech.");
     
     await setPersonalSummary([
@@ -864,6 +866,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const haToken = await getSetting("home_assistant_token", "");
   const bio = await getSetting("biography_text", "");
   const localVoice = await getSetting("local_tts_voice", "");
+  const hoverB = await getSetting("hover_brightness", "1.2");
   
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
   document.getElementById("font-editor").value = fontEd;
@@ -874,6 +877,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("ha-url-input").value = haUrl;
   document.getElementById("ha-token-input").value = haToken;
   document.getElementById("biography-text").value = bio;
+  const hoverBEl = document.getElementById("hover-brightness");
+  if (hoverBEl) {
+    hoverBEl.value = hoverB;
+  }
   
   // Cache globally
   settings.font_size_editor = parseInt(fontEd, 10) || 32;
@@ -885,6 +892,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.home_assistant_token = haToken;
   settings.biography_text = bio;
   settings.local_tts_voice = localVoice;
+  settings.hover_brightness = parseFloat(hoverB) || 1.2;
+  document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
   
   // Populate local TTS Voice dropdown
   populateVoiceDropdown();
@@ -972,7 +981,7 @@ function setupUIBindings() {
   // Global window key intercept for physical keyboards
   window.addEventListener("keydown", (e) => {
     const activeEl = document.activeElement;
-    if (activeEl && ["biography-text", "font-editor", "font-keyboard", "min-target-width", "min-target-height", "ha-url-input", "ha-token-input"].includes(activeEl.id)) {
+    if (activeEl && ["biography-text", "font-editor", "font-keyboard", "hover-brightness", "min-target-width", "min-target-height", "ha-url-input", "ha-token-input"].includes(activeEl.id)) {
       return; // Skip intercepting inside modal inputs
     }
     
@@ -1100,6 +1109,8 @@ function setupUIBindings() {
     const haToken = document.getElementById("ha-token-input").value;
     const bioText = document.getElementById("biography-text").value;
     const localVoice = document.getElementById("local-tts-voice-select").value;
+    const hoverBEl = document.getElementById("hover-brightness");
+    const hoverBrightness = hoverBEl ? hoverBEl.value : "1.2";
     
     await setSetting("font_size_editor", fontEd);
     await setSetting("font_size_keyboard", fontKy);
@@ -1110,6 +1121,7 @@ function setupUIBindings() {
     await setSetting("home_assistant_token", haToken);
     await setSetting("biography_text", bioText);
     await setSetting("local_tts_voice", localVoice);
+    await setSetting("hover_brightness", hoverBrightness);
     
     // Update global settings cache
     settings.font_size_editor = parseInt(fontEd, 10) || 32;
@@ -1121,7 +1133,9 @@ function setupUIBindings() {
     settings.home_assistant_token = haToken;
     settings.biography_text = bioText;
     settings.local_tts_voice = localVoice;
+    settings.hover_brightness = parseFloat(hoverBrightness) || 1.2;
     
+    document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
     
     updatePredictionsAndKeyboard();
