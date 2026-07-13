@@ -26,6 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.endswith((".html", ".js", ".css")) or path == "/":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
 # Set API Keys
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
@@ -227,7 +235,7 @@ def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/predict-words")
-async def predict_words(request: WordPredictionRequest):
+def predict_words(request: WordPredictionRequest):
     if not GEMINI_API_KEY or not client:
         return {"predictions": []}
     
@@ -277,7 +285,7 @@ async def predict_words(request: WordPredictionRequest):
             f"Output raw clean JSON only, no markdown markers, no extra text."
         )
 
-        response = await client.aio.models.generate_content(
+        response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -295,7 +303,7 @@ async def predict_words(request: WordPredictionRequest):
         return {"predictions": []}
 
 @app.post("/api/predict-phrases")
-async def predict_phrases(request: PhrasePredictionRequest):
+def predict_phrases(request: PhrasePredictionRequest):
     if not GEMINI_API_KEY or not client:
         return {"phrases": ["how are you today?", "thank you very much.", "please help me with this."]}
         
@@ -351,7 +359,7 @@ async def predict_phrases(request: PhrasePredictionRequest):
                 f"For example, if user typed 'turn on', you might return: 'the lights, the television, the fan'."
             )
 
-        response = await client.aio.models.generate_content(
+        response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(

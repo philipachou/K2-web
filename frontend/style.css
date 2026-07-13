@@ -15,6 +15,7 @@
   --color-text: #f3f4f6;      /* Off-white */
   --color-text-muted: #9ca3af;/* Grey */
   --hover-brightness: 1.2;
+  --min-target-height: 40px;
 }
 
 * {
@@ -311,7 +312,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 50px;
+  min-height: var(--min-target-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -472,7 +473,7 @@ body {
   font-size: 0.95rem;
   font-weight: 600;
   transition: all 0.15s ease;
-  min-height: 32px;
+  min-height: var(--min-target-height);
 }
 .predict-btn:hover {
   border-color: var(--color-success);
@@ -716,6 +717,17 @@ body {
   0% { opacity: 0.6; }
   50% { opacity: 1.0; }
   100% { opacity: 0.6; }
+}
+
+/* --- Unified Minimum Button Sizing System --- */
+.btn,
+.mode-btn,
+.action-card,
+.predict-btn,
+.key,
+.custom-dropdown-trigger,
+.custom-dropdown-item {
+  min-height: var(--min-target-height) !important;
 }
 
 /* --- Unified Hover Feedback System --- */

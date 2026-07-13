@@ -894,6 +894,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.local_tts_voice = localVoice;
   settings.hover_brightness = parseFloat(hoverB) || 1.2;
   document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
+  document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
   
   // Populate local TTS Voice dropdown
   populateVoiceDropdown();
@@ -1166,6 +1167,7 @@ function setupUIBindings() {
     settings.hover_brightness = parseFloat(hoverBrightness) || 1.2;
     
     document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
+    document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
     
     updatePredictionsAndKeyboard();
