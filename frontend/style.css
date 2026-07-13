@@ -192,9 +192,8 @@ body {
 }
 
 .mode-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+  border-color: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
 }
 
 .dropdown-select {
