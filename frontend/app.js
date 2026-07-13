@@ -2010,7 +2010,7 @@ async function toggleDictation() {
       
       mediaRecorder.onstop = async () => {
         dictateBtn.textContent = "Working...";
-        dictateBtn.className = "btn btn-warning";
+        dictateBtn.className = "btn btn-orange";
         dictateBtn.disabled = true;
         
         const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
@@ -2041,7 +2041,7 @@ async function toggleDictation() {
           renderChatLog();
         } finally {
           dictateBtn.textContent = "Dictate";
-          dictateBtn.className = "btn btn-teal";
+          dictateBtn.className = "btn btn-purple";
           dictateBtn.disabled = false;
         }
       };

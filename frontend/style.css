@@ -197,6 +197,13 @@ body {
   text-align: center;
 }
 
+#mode-delete { background: #475569; color: #fff; }
+#mode-edit { background: #9b59b6; color: #fff; }
+#mode-cloud-tts { background: #2ecc71; color: #000; }
+#mode-local-tts { background: #2ecc71; color: #000; }
+#mode-copy { background: #2ecc71; color: #000; }
+#mode-cloud { background: #1f538d; color: #fff; }
+
 .mode-btn.active {
   border-color: #ffffff;
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
@@ -366,15 +373,16 @@ body {
   filter: brightness(var(--hover-brightness));
 }
 
-.btn-secondary { background: #475569; }
+.btn-gray { background: #475569; color: #fff; }
+.btn-purple { background: #9b59b6; color: #fff; }
+.btn-green { background: #2ecc71; color: #000; }
+.btn-blue { background: #1f538d; color: #fff; }
+.btn-orange { background: #e67e22; color: #fff; }
 .btn-danger { background: var(--color-danger); }
-.btn-teal { background: var(--color-teal); color: #000; }
-.btn-success { background: var(--color-success); color: #000; }
-.btn-primary { background: var(--color-primary); }
-.btn-warning { background: var(--color-warning); }
 
 .btn-settings-icon {
-  background: rgba(255, 255, 255, 0.1);
+  background: #475569;
+  color: #fff;
   font-size: 1.1rem;
   padding: 0;
   display: flex;
