@@ -142,7 +142,7 @@ def parse_suggestions(text: str) -> tuple[str, list[dict]]:
     return clean_text, suggestions
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest):
+def chat(request: ChatRequest):
     if not GEMINI_API_KEY or not client:
         mock_reply = "[Mock Cloud AI] Please configure the GEMINI_API_KEY in your server environment settings."
         mock_sug = [
@@ -230,6 +230,28 @@ async def chat(request: ChatRequest):
 async def predict_words(request: WordPredictionRequest):
     if not GEMINI_API_KEY or not client:
         return {"predictions": []}
+    
+    if not request.text_prefix.strip():
+        return {
+            "predictions": [
+                {"word": "I", "weight": 1000},
+                {"word": "My", "weight": 950},
+                {"word": "The", "weight": 900},
+                {"word": "It", "weight": 850},
+                {"word": "Just", "weight": 800},
+                {"word": "Can", "weight": 750},
+                {"word": "Need", "weight": 700},
+                {"word": "Want", "weight": 650},
+                {"word": "How", "weight": 600},
+                {"word": "Thanks", "weight": 550},
+                {"word": "So", "weight": 500},
+                {"word": "Good", "weight": 450},
+                {"word": "Feeling", "weight": 400},
+                {"word": "About", "weight": 350},
+                {"word": "What", "weight": 300}
+            ]
+        }
+
     try:
         lines = []
         for msg in request.history:
@@ -255,7 +277,7 @@ async def predict_words(request: WordPredictionRequest):
             f"Output raw clean JSON only, no markdown markers, no extra text."
         )
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -277,6 +299,15 @@ async def predict_phrases(request: PhrasePredictionRequest):
     if not GEMINI_API_KEY or not client:
         return {"phrases": ["how are you today?", "thank you very much.", "please help me with this."]}
         
+    if not request.text_prefix.strip() and not request.text_suffix.strip():
+        return {
+            "phrases": [
+                "how are you",
+                "i need to",
+                "can you help"
+            ]
+        }
+
     try:
         lines = []
         for msg in request.history:
@@ -320,7 +351,7 @@ async def predict_phrases(request: PhrasePredictionRequest):
                 f"For example, if user typed 'turn on', you might return: 'the lights, the television, the fan'."
             )
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -335,12 +366,12 @@ async def predict_phrases(request: PhrasePredictionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/transcribe")
-async def transcribe(file: UploadFile = File(...)):
+def transcribe(file: UploadFile = File(...)):
     if not GEMINI_API_KEY or not client:
         return {"transcript": "Mock dictation: Gemini API Key is missing on the server."}
         
     try:
-        audio_data = await file.read()
+        audio_data = file.file.read()
         
         system_instruction = (
             "You are a precise, verbatim audio transcription tool. "
@@ -425,7 +456,7 @@ async def tts(request: TTSRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/compile-profile")
-async def compile_profile(profile_text: str = Form(...)):
+def compile_profile(profile_text: str = Form(...)):
     if not GEMINI_API_KEY or not client:
         return [
             {"category": "User Info", "content": profile_text[:200]}

@@ -532,6 +532,10 @@ let activeTTSAbortController = null;
 let isSpeakingCloud = false;
 let isSpeakingLocal = false;
 
+// Prediction requests abort controllers
+let activeWordsAbortController = null;
+let activePhrasesAbortController = null;
+
 // Cached settings object to avoid async db reads in rendering loops
 let settings = {
   font_size_editor: 32,
@@ -917,6 +921,25 @@ function populateVoiceDropdown() {
   });
 }
 
+function updateRecolorButtonColors() {
+  const dropdown = document.getElementById("action-color-select");
+  const recolorBtn = document.getElementById("mode-recolor");
+  if (!dropdown || !recolorBtn) return;
+  
+  const chosenColorName = dropdown.value;
+  const colorMap = {
+    "Blue": "#1f538d", "Green": "#2ecc71", "Red": "#e74c3c", "Orange": "#e67e22",
+    "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#7f8c8d"
+  };
+  const hex = colorMap[chosenColorName] || "#1f538d";
+  
+  dropdown.style.backgroundColor = hex;
+  dropdown.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
+  
+  recolorBtn.style.backgroundColor = hex;
+  recolorBtn.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
+}
+
 function setupUIBindings() {
   const editor = document.getElementById("editor-box");
   
@@ -1017,7 +1040,7 @@ function setupUIBindings() {
   document.getElementById("btn-cloud").addEventListener("click", executeSendCloud);
   
   document.getElementById("btn-save").addEventListener("click", async () => {
-    if (!editor.value.trim()) return;
+    if (!editor.value) return;
     
     if (loadedActionTag) {
       // Overwrite the currently loaded macro directly
@@ -1037,7 +1060,7 @@ function setupUIBindings() {
   });
 
   document.getElementById("btn-save-as").addEventListener("click", async () => {
-    if (!editor.value.trim()) return;
+    if (!editor.value) return;
     const tag = prompt("Save As... Enter a new tag/label for this macro:");
     if (!tag) return;
     await saveAction(tag, editor.value);
@@ -1054,6 +1077,13 @@ function setupUIBindings() {
       activeMode = btn.textContent;
     });
   });
+
+  // Recolor controls
+  const colorSelect = document.getElementById("action-color-select");
+  if (colorSelect) {
+    colorSelect.addEventListener("change", updateRecolorButtonColors);
+  }
+  updateRecolorButtonColors();
 
   // Settings Modal controls
   document.getElementById("btn-settings").addEventListener("click", () => {
@@ -1304,11 +1334,23 @@ function updatePredictionsAndKeyboardOnly() {
 }
 
 async function executeFetchWords(textBefore, prefix) {
-  const history = await getChatHistory();
-  const summaryList = await getPersonalSummary();
-  const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
-  
+  if (activeWordsAbortController) {
+    activeWordsAbortController.abort();
+  }
+  const controller = new AbortController();
+  activeWordsAbortController = controller;
+  const signal = controller.signal;
+
   try {
+    const history = await getChatHistory();
+    if (activeWordsAbortController !== controller) return;
+
+    const summaryList = await getPersonalSummary();
+    if (activeWordsAbortController !== controller) return;
+
+    const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
+    if (activeWordsAbortController !== controller) return;
+    
     const res = await fetch("/api/predict-words", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1316,15 +1358,25 @@ async function executeFetchWords(textBefore, prefix) {
         history,
         profile_summary,
         text_prefix: textBefore
-      })
+      }),
+      signal: signal
     });
+    
     const data = await res.json();
+    if (activeWordsAbortController !== controller) return;
+
     if (data.predictions && Array.isArray(data.predictions)) {
       lastApiPredictions = data.predictions;
       updatePredictionsAndKeyboardOnly();
     }
   } catch (err) {
-    console.error("Word predictions API failed:", err);
+    if (err.name !== "AbortError") {
+      console.error("Word predictions API failed:", err);
+    }
+  } finally {
+    if (activeWordsAbortController === controller) {
+      activeWordsAbortController = null;
+    }
   }
 }
 
@@ -1366,16 +1418,28 @@ function renderWordPredictions(words, prefix) {
 }
 
 async function executeFetchPhrases(textBefore, textAfter) {
+  if (activePhrasesAbortController) {
+    activePhrasesAbortController.abort();
+  }
+  const controller = new AbortController();
+  activePhrasesAbortController = controller;
+  const signal = controller.signal;
+
   const container = document.getElementById("phrase-predictions");
   const thinking = document.getElementById("phrase-thinking");
   
   thinking.style.display = "inline";
   
-  const history = await getChatHistory();
-  const summaryList = await getPersonalSummary();
-  const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
-  
   try {
+    const history = await getChatHistory();
+    if (activePhrasesAbortController !== controller) return;
+
+    const summaryList = await getPersonalSummary();
+    if (activePhrasesAbortController !== controller) return;
+
+    const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
+    if (activePhrasesAbortController !== controller) return;
+    
     const res = await fetch("/api/predict-phrases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1384,16 +1448,25 @@ async function executeFetchPhrases(textBefore, textAfter) {
         text_suffix: textAfter,
         history,
         profile_summary
-      })
+      }),
+      signal: signal
     });
+    
     const data = await res.json();
-    thinking.style.display = "none";
+    if (activePhrasesAbortController !== controller) return;
+
     if (data.phrases) {
       renderPhrasePredictions(data.phrases, textBefore, textAfter);
     }
   } catch (err) {
-    console.error("Phrase prediction request failed:", err);
-    thinking.style.display = "none";
+    if (err.name !== "AbortError") {
+      console.error("Phrase prediction request failed:", err);
+    }
+  } finally {
+    if (activePhrasesAbortController === controller) {
+      thinking.style.display = "none";
+      activePhrasesAbortController = null;
+    }
   }
 }
 
@@ -1507,6 +1580,39 @@ function renderKeyboard(probabilities) {
   });
 }
 
+let hoverTimeoutId = null;
+let resetTimeoutId = null;
+
+function setupHoverPreview(element, text) {
+  element.onmouseenter = () => {
+    if (resetTimeoutId) {
+      clearTimeout(resetTimeoutId);
+      resetTimeoutId = null;
+    }
+    if (hoverTimeoutId) {
+      clearTimeout(hoverTimeoutId);
+    }
+    hoverTimeoutId = setTimeout(() => {
+      document.getElementById("actions-preview").textContent = text;
+      hoverTimeoutId = null;
+    }, 250);
+  };
+
+  element.onmouseleave = () => {
+    if (hoverTimeoutId) {
+      clearTimeout(hoverTimeoutId);
+      hoverTimeoutId = null;
+    }
+    if (resetTimeoutId) {
+      clearTimeout(resetTimeoutId);
+    }
+    resetTimeoutId = setTimeout(() => {
+      document.getElementById("actions-preview").textContent = "Hover over an action to preview...";
+      resetTimeoutId = null;
+    }, 2000);
+  };
+}
+
 async function renderSavedActions() {
   const grid = document.getElementById("actions-grid");
   grid.innerHTML = "";
@@ -1530,12 +1636,7 @@ async function renderSavedActions() {
     }
     
     // Hover tooltips for preview bar
-    card.onmouseenter = () => {
-      document.getElementById("actions-preview").textContent = `Macro Preview: "${action.action_text}"`;
-    };
-    card.onmouseleave = () => {
-      document.getElementById("actions-preview").textContent = "Hover over an action to preview...";
-    };
+    setupHoverPreview(card, `Macro Preview: "${action.action_text}"`);
     
     // Click macro behaviour based on Action Mode selector
     card.onclick = async () => {
@@ -1550,8 +1651,8 @@ async function executeActionByMode(tag, action_text) {
   const editor = document.getElementById("editor-box");
   
   if (activeMode === "Edit") {
-    // Insert text at cursor, trailing space, leaving selection caret at end
-    insertTextAtCursor(action_text + " ");
+    // Insert text at cursor, leaving selection caret at end
+    insertTextAtCursor(action_text);
     loadedActionTag = tag;
     editor.focus();
   } else if (activeMode === "@CloudTTS") {
@@ -1685,6 +1786,8 @@ function renderSuggestions(suggestions) {
     card.style.borderColor = "var(--color-success)";
     card.style.color = "#fff";
     card.textContent = sug.tag;
+    
+    setupHoverPreview(card, `Suggestion Preview: "${sug.action_text}"`);
     
     card.onclick = () => {
       executeActionByMode(sug.tag, sug.action_text);
