@@ -505,6 +505,25 @@ def compile_profile(profile_text: str = Form(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/debug-env")
+def debug_env():
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    
+    def mask_key(k):
+        if not k:
+            return "NOT_SET"
+        if len(k) <= 10:
+            return f"SET (Length: {len(k)})"
+        return f"SET (Length: {len(k)}, Prefix: {k[:5]}...{k[-5:]})"
+        
+    return {
+        "GEMINI_API_KEY": mask_key(gemini_key),
+        "ELEVENLABS_API_KEY": mask_key(eleven_key),
+        "environment_keys": list(os.environ.keys()),
+        "client_initialized": client is not None
+    }
+
 # Mount static frontend directory (must be defined last so API routes take precedence)
 if os.path.exists("frontend"):
     app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
