@@ -939,7 +939,7 @@ function updateRecolorButtonColors() {
   const chosenColorName = dropdown.value;
   const colorMap = {
     "Blue": "#1f538d", "Green": "#2ecc71", "Red": "#e74c3c", "Orange": "#e67e22",
-    "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#7f8c8d"
+    "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#475569"
   };
   const hex = colorMap[chosenColorName] || "#1f538d";
   
@@ -1725,7 +1725,7 @@ async function executeActionByMode(tag, action_text) {
     const chosenColorName = dropdown.value;
     const colorMap = {
       "Blue": "#1f538d", "Green": "#2ecc71", "Red": "#e74c3c", "Orange": "#e67e22",
-      "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#7f8c8d"
+      "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#475569"
     };
     const hex = colorMap[chosenColorName] || "#1f538d";
     await saveAction(tag, action_text, hex);
