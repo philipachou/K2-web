@@ -380,6 +380,10 @@ body {
 .btn-blue { background: #1f538d; color: #fff; }
 .btn-orange { background: #e67e22; color: #fff; }
 .btn-danger { background: var(--color-danger); }
+.btn-secondary { background: #e2e8f0; color: #000 !important; }
+.btn-teal { background: var(--color-teal); color: #000 !important; }
+.btn-primary { background: var(--color-primary); color: #000 !important; }
+.btn-warning { background: var(--color-warning); color: #000 !important; }
 
 .btn-settings-icon {
   background: #475569;
