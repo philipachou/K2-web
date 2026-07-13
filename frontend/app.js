@@ -2095,16 +2095,18 @@ async function executeCompileProfile() {
 
 // --- Backup Export / Import Configuration Operations ---
 async function exportConfiguration() {
-  const txn = db.transaction(["settings", "saved_actions", "personal_summary"], "readonly");
+  const txn = db.transaction(["settings", "saved_actions", "personal_summary", "chat_history"], "readonly");
   const settingsReq = txn.objectStore("settings").getAll();
   const actionsReq = txn.objectStore("saved_actions").getAll();
   const summaryReq = txn.objectStore("personal_summary").getAll();
+  const chatReq = txn.objectStore("chat_history").getAll();
   
   txn.oncomplete = () => {
     const data = {
       settings: settingsReq.result,
       saved_actions: actionsReq.result,
-      personal_summary: summaryReq.result
+      personal_summary: summaryReq.result,
+      chat_history: chatReq.result
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -2121,7 +2123,7 @@ async function importConfiguration(file) {
   reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      const txn = db.transaction(["settings", "saved_actions", "personal_summary"], "readwrite");
+      const txn = db.transaction(["settings", "saved_actions", "personal_summary", "chat_history"], "readwrite");
       
       if (data.settings) {
         const store = txn.objectStore("settings");
@@ -2137,6 +2139,11 @@ async function importConfiguration(file) {
         const store = txn.objectStore("personal_summary");
         store.clear();
         data.personal_summary.forEach(item => store.put(item));
+      }
+      if (data.chat_history) {
+        const store = txn.objectStore("chat_history");
+        store.clear();
+        data.chat_history.forEach(item => store.put(item));
       }
       
       txn.oncomplete = () => {
