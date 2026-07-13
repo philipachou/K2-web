@@ -1825,9 +1825,14 @@ async function executeSendCloud() {
 function renderSuggestions(suggestions) {
   // Renders suggestions inline inside actions grid
   const grid = document.getElementById("actions-grid");
+  
+  // Clear any previously rendered suggestions to avoid accumulation
+  const existingSuggestions = grid.querySelectorAll(".suggestion-card");
+  existingSuggestions.forEach(el => el.remove());
+  
   suggestions.forEach(sug => {
     const card = document.createElement("div");
-    card.className = "action-card";
+    card.className = "action-card suggestion-card";
     card.style.background = "rgba(16, 185, 129, 0.15)";
     card.style.borderColor = "var(--color-success)";
     card.style.color = "#fff";
