@@ -170,25 +170,31 @@ body {
 /* --- Actions Panel (Right) --- */
 .actions-header-controls {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
 }
 
 .action-modes {
-  display: flex;
-  gap: 4px;
+  display: contents;
 }
 
 .mode-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--glass-border);
-  padding: 4px 8px;
+  padding: 6px 4px;
   border-radius: 6px;
   color: var(--color-text);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 600;
   transition: all 0.15s ease;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .mode-btn.active {
@@ -210,8 +216,11 @@ body {
 
 .custom-dropdown {
   position: relative;
-  display: inline-block;
   user-select: none;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .custom-dropdown-trigger {
@@ -225,9 +234,13 @@ body {
   font-size: 0.75rem;
   outline: none;
   cursor: pointer;
-  min-width: 90px;
+  min-width: 0;
+  width: 100%;
   text-align: left;
   transition: all 0.15s ease;
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .custom-dropdown-trigger::after {
@@ -363,12 +376,12 @@ body {
 .btn-settings-icon {
   background: rgba(255, 255, 255, 0.1);
   font-size: 1.1rem;
-  max-width: 40px;
-  flex: 0 0 40px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .textbox-wrapper {
