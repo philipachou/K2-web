@@ -932,6 +932,7 @@ function populateVoiceDropdown() {
 
 function updateRecolorButtonColors() {
   const dropdown = document.getElementById("action-color-select");
+  const trigger = document.getElementById("color-dropdown-trigger");
   const recolorBtn = document.getElementById("mode-recolor");
   if (!dropdown || !recolorBtn) return;
   
@@ -942,8 +943,11 @@ function updateRecolorButtonColors() {
   };
   const hex = colorMap[chosenColorName] || "#1f538d";
   
-  dropdown.style.backgroundColor = hex;
-  dropdown.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
+  if (trigger) {
+    trigger.textContent = chosenColorName;
+    trigger.style.backgroundColor = hex;
+    trigger.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
+  }
   
   recolorBtn.style.backgroundColor = hex;
   recolorBtn.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
@@ -1093,6 +1097,32 @@ function setupUIBindings() {
     colorSelect.addEventListener("change", updateRecolorButtonColors);
   }
   updateRecolorButtonColors();
+
+  // Custom color dropdown triggers
+  const colorTrigger = document.getElementById("color-dropdown-trigger");
+  const colorMenu = document.getElementById("color-dropdown-menu");
+  if (colorTrigger && colorMenu) {
+    colorTrigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      colorMenu.classList.toggle("show");
+    });
+    
+    document.addEventListener("click", () => {
+      colorMenu.classList.remove("show");
+    });
+    
+    const items = colorMenu.querySelectorAll(".custom-dropdown-item");
+    items.forEach(item => {
+      item.addEventListener("click", () => {
+        const val = item.getAttribute("data-value");
+        const select = document.getElementById("action-color-select");
+        if (select) {
+          select.value = val;
+          select.dispatchEvent(new Event("change"));
+        }
+      });
+    });
+  }
 
   // Settings Modal controls
   document.getElementById("btn-settings").addEventListener("click", () => {

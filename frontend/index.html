@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <div class="app-container">
@@ -45,17 +45,34 @@
                 <button id="mode-recolor" class="mode-btn">Recolor</button>
               </div>
               <!-- Recolor dropdown -->
-              <select id="action-color-select" class="dropdown-select">
-                <option value="Blue" style="background-color: #1f538d; color: white;" selected>Blue</option>
-                <option value="Green" style="background-color: #2ecc71; color: black;">Green</option>
-                <option value="Red" style="background-color: #e74c3c; color: white;">Red</option>
-                <option value="Orange" style="background-color: #e67e22; color: white;">Orange</option>
-                <option value="Purple" style="background-color: #9b59b6; color: white;">Purple</option>
-                <option value="Yellow" style="background-color: #f1c40f; color: black;">Yellow</option>
-                <option value="Teal" style="background-color: #1abc9c; color: black;">Teal</option>
-                <option value="Pink" style="background-color: #e84393; color: white;">Pink</option>
-                <option value="Gray" style="background-color: #7f8c8d; color: white;">Gray</option>
+              <select id="action-color-select" style="display: none;">
+                <option value="Blue">Blue</option>
+                <option value="Green">Green</option>
+                <option value="Red">Red</option>
+                <option value="Orange">Orange</option>
+                <option value="Purple">Purple</option>
+                <option value="Yellow">Yellow</option>
+                <option value="Teal">Teal</option>
+                <option value="Pink">Pink</option>
+                <option value="Gray">Gray</option>
               </select>
+
+              <!-- Custom Recolor dropdown -->
+              <div class="custom-dropdown" id="action-color-dropdown">
+                <div class="custom-dropdown-trigger" id="color-dropdown-trigger">Blue</div>
+                <div class="custom-dropdown-menu" id="color-dropdown-menu">
+                  <div class="custom-dropdown-item" data-value="Blue" style="background-color: #1f538d; color: white;">Blue</div>
+                  <div class="custom-dropdown-item" data-value="Green" style="background-color: #2ecc71; color: black;">Green</div>
+                  <div class="custom-dropdown-item" data-value="Red" style="background-color: #e74c3c; color: white;">Red</div>
+                  <div class="custom-dropdown-item" data-value="Orange" style="background-color: #e67e22; color: white;">Orange</div>
+                  <div class="custom-dropdown-item" data-value="Purple" style="background-color: #9b59b6; color: white;">Purple</div>
+                  <div class="custom-dropdown-item" data-value="Yellow" style="background-color: #f1c40f; color: black;">Yellow</div>
+                  <div class="custom-dropdown-item" data-value="Teal" style="background-color: #1abc9c; color: black;">Teal</div>
+                  <div class="custom-dropdown-item" data-value="Pink" style="background-color: #e84393; color: white;">Pink</div>
+                  <div class="custom-dropdown-item" data-value="Gray" style="background-color: #7f8c8d; color: white;">Gray</div>
+                </div>
+              </div>
+
               <button id="btn-settings" class="btn btn-settings-icon">&#9881;</button>
             </div>
           </div>
@@ -202,6 +219,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
