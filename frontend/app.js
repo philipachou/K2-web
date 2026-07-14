@@ -1175,7 +1175,13 @@ function setupUIBindings() {
   });
 
   // Profile Compilation via Gemini
-  document.getElementById("btn-compile").addEventListener("click", executeCompileProfile);
+  const profileFileInput = document.getElementById("profile-file-input");
+  document.getElementById("btn-compile").addEventListener("click", () => profileFileInput.click());
+  profileFileInput.addEventListener("change", (e) => {
+    if (e.target.files.length) {
+      executeCompileProfile(e.target.files[0]);
+    }
+  });
 
   // Backup & Import Bindings
   document.getElementById("btn-export-config").addEventListener("click", exportConfiguration);
@@ -2068,34 +2074,55 @@ async function toggleDictation() {
 }
 
 // --- Profile Biography Compiler ---
-async function executeCompileProfile() {
+async function executeCompileProfile(file) {
+  if (!file) return;
   const compileBtn = document.getElementById("btn-compile");
-  const text = document.getElementById("biography-text").value;
-  if (!text.trim()) return;
-
+  
   compileBtn.disabled = true;
   compileBtn.textContent = "Compiling...";
 
-  try {
-    const formData = new FormData();
-    formData.append("profile_text", text);
-    
-    const res = await fetch("/api/compile-profile", {
-      method: "POST",
-      body: formData
-    });
-    const data = await res.json();
-    if (data && Array.isArray(data)) {
-      await setPersonalSummary(data);
-      alert("Personal profile biography compiled successfully into SQLite schema categories!");
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const text = e.target.result;
+      if (!text.trim()) {
+        alert("Selected file is empty.");
+        compileBtn.disabled = false;
+        compileBtn.textContent = "Compile Profile via Gemini";
+        return;
+      }
+
+      // Update the textarea inside modal so the user sees the loaded text
+      document.getElementById("biography-text").value = text;
+      // Persist the raw text in local settings
+      await setSetting("biography_text", text);
+      settings.biography_text = text;
+
+      const formData = new FormData();
+      formData.append("profile_text", text);
+      
+      const res = await fetch("/api/compile-profile", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (data && Array.isArray(data)) {
+        await setPersonalSummary(data);
+        alert("Personal profile biography compiled successfully into SQLite schema categories!");
+      } else {
+        alert("Compilation failed or returned invalid format.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Compilation failed: " + err.message);
+    } finally {
+      compileBtn.disabled = false;
+      compileBtn.textContent = "Compile Profile via Gemini";
+      // Clear the file input selection so selecting the same file again triggers change event
+      document.getElementById("profile-file-input").value = "";
     }
-  } catch (err) {
-    console.error(err);
-    alert("Compilation failed.");
-  } finally {
-    compileBtn.disabled = false;
-    compileBtn.textContent = "Compile Profile via Gemini";
-  }
+  };
+  reader.readAsText(file);
 }
 
 // --- Backup Export / Import Configuration Operations ---

@@ -490,7 +490,7 @@ def compile_profile(profile_text: str = Form(...)):
         )
         
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             contents=f"Compile this biography profile:\n{profile_text}",
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
