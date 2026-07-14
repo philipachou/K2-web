@@ -536,6 +536,8 @@ let isSpeakingLocal = false;
 let activeWordsAbortController = null;
 let activePhrasesAbortController = null;
 
+let originalBiographyText = "";
+
 // Cached settings object to avoid async db reads in rendering loops
 let settings = {
   font_size_editor: 32,
@@ -877,6 +879,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("ha-url-input").value = haUrl;
   document.getElementById("ha-token-input").value = haToken;
   document.getElementById("biography-text").value = bio;
+  originalBiographyText = bio;
   const hoverBEl = document.getElementById("hover-brightness");
   if (hoverBEl) {
     hoverBEl.value = hoverB;
@@ -981,6 +984,13 @@ function setupUIBindings() {
     }
     previousCaretPosition = editor.selectionStart;
     updatePredictionsAndKeyboard();
+  });
+
+  editor.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      executeSendCloud();
+    }
   });
 
   // Global window key intercept for physical keyboards
@@ -1127,6 +1137,7 @@ function setupUIBindings() {
 
   // Settings Modal controls
   document.getElementById("btn-settings").addEventListener("click", () => {
+    originalBiographyText = document.getElementById("biography-text").value;
     document.getElementById("settings-modal").style.display = "flex";
   });
   
@@ -1154,6 +1165,15 @@ function setupUIBindings() {
     await setSetting("local_tts_voice", localVoice);
     await setSetting("hover_brightness", hoverBrightness);
     
+    // Check if biography text has changed since last save/load
+    if (bioText !== originalBiographyText) {
+      const timestamp = new Date().toISOString();
+      await setSetting("biography_text_timestamp", timestamp);
+      originalBiographyText = bioText;
+      // Compile biography into categories using Gemini 3.5 Flash
+      executeCompileProfileFromString(bioText);
+    }
+    
     // Update global settings cache
     settings.font_size_editor = parseInt(fontEd, 10) || 32;
     settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
@@ -1174,12 +1194,17 @@ function setupUIBindings() {
     document.getElementById("settings-modal").style.display = "none";
   });
 
-  // Profile Compilation via Gemini
+  // Profile File Picker - reads text file and copies it to Settings biography text area
   const profileFileInput = document.getElementById("profile-file-input");
   document.getElementById("btn-compile").addEventListener("click", () => profileFileInput.click());
   profileFileInput.addEventListener("change", (e) => {
     if (e.target.files.length) {
-      executeCompileProfile(e.target.files[0]);
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        document.getElementById("biography-text").value = evt.target.result;
+        profileFileInput.value = ""; // Clear file input
+      };
+      reader.readAsText(e.target.files[0]);
     }
   });
 
@@ -2074,55 +2099,37 @@ async function toggleDictation() {
 }
 
 // --- Profile Biography Compiler ---
-async function executeCompileProfile(file) {
-  if (!file) return;
+async function executeCompileProfileFromString(text) {
   const compileBtn = document.getElementById("btn-compile");
-  
-  compileBtn.disabled = true;
-  compileBtn.textContent = "Compiling...";
+  if (compileBtn) {
+    compileBtn.disabled = true;
+    compileBtn.textContent = "Compiling...";
+  }
 
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const text = e.target.result;
-      if (!text.trim()) {
-        alert("Selected file is empty.");
-        compileBtn.disabled = false;
-        compileBtn.textContent = "Compile Profile via Gemini";
-        return;
-      }
-
-      // Update the textarea inside modal so the user sees the loaded text
-      document.getElementById("biography-text").value = text;
-      // Persist the raw text in local settings
-      await setSetting("biography_text", text);
-      settings.biography_text = text;
-
-      const formData = new FormData();
-      formData.append("profile_text", text);
-      
-      const res = await fetch("/api/compile-profile", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      if (data && Array.isArray(data)) {
-        await setPersonalSummary(data);
-        alert("Personal profile biography compiled successfully into SQLite schema categories!");
-      } else {
-        alert("Compilation failed or returned invalid format.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Compilation failed: " + err.message);
-    } finally {
-      compileBtn.disabled = false;
-      compileBtn.textContent = "Compile Profile via Gemini";
-      // Clear the file input selection so selecting the same file again triggers change event
-      document.getElementById("profile-file-input").value = "";
+  try {
+    const formData = new FormData();
+    formData.append("profile_text", text);
+    
+    const res = await fetch("/api/compile-profile", {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+    if (data && Array.isArray(data)) {
+      await setPersonalSummary(data);
+      alert("Personal profile biography compiled successfully into SQLite schema categories!");
+    } else {
+      console.error("Compilation failed or returned invalid format.");
     }
-  };
-  reader.readAsText(file);
+  } catch (err) {
+    console.error(err);
+    alert("Biography compilation failed: " + err.message);
+  } finally {
+    if (compileBtn) {
+      compileBtn.disabled = false;
+      compileBtn.textContent = "Update profile from text file";
+    }
+  }
 }
 
 // --- Backup Export / Import Configuration Operations ---
