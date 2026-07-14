@@ -479,41 +479,41 @@ const DICTIONARY = DICTIONARY_TEXT.split("\n").filter(l => l.trim()).map(line =>
 
 // --- Core Predictor Matrices from tlm.py ---
 const DEFAULT_FREQS = {
-  'e': 0.1202, 't': 0.0910, 'a': 0.0812, 'o': 0.0768, 'i': 0.0731, 
-  'n': 0.0695, 's': 0.0628, 'r': 0.0602, 'h': 0.0592, 'd': 0.0432, 
-  'l': 0.0398, 'u': 0.0288, 'c': 0.0271, 'm': 0.0261, 'f': 0.0230, 
-  'y': 0.0211, 'w': 0.0209, 'g': 0.0203, 'p': 0.0182, 'b': 0.0149, 
-  'v': 0.0111, 'k': 0.0069, 'x': 0.0017, 'q': 0.0011, 'j': 0.0010, 
+  'e': 0.1202, 't': 0.0910, 'a': 0.0812, 'o': 0.0768, 'i': 0.0731,
+  'n': 0.0695, 's': 0.0628, 'r': 0.0602, 'h': 0.0592, 'd': 0.0432,
+  'l': 0.0398, 'u': 0.0288, 'c': 0.0271, 'm': 0.0261, 'f': 0.0230,
+  'y': 0.0211, 'w': 0.0209, 'g': 0.0203, 'p': 0.0182, 'b': 0.0149,
+  'v': 0.0111, 'k': 0.0069, 'x': 0.0017, 'q': 0.0011, 'j': 0.0010,
   'z': 0.0007, ' ': 0.1500
 };
 
 const BIGRAM_MATRIX = {
-  'a': {'n': 10, 'r': 9, 't': 8, 's': 7, 'l': 6, 'd': 5, 'c': 4, 'm': 4, 'g': 3, 'b': 2, ' ': 8},
-  'b': {'e': 10, 'u': 8, 'o': 7, 'a': 6, 'i': 5, 'l': 4, 'r': 4, 'y': 3, ' ': 3},
-  'c': {'o': 10, 'h': 9, 'e': 8, 'a': 7, 'i': 6, 'k': 5, 'l': 4, 'u': 3, 'r': 3, ' ': 2},
-  'd': {'e': 10, 'i': 7, 'o': 6, 'a': 5, 'u': 4, 'y': 3, 'r': 2, ' ': 12},
-  'e': {'r': 10, 'n': 9, 's': 8, 'd': 7, 'a': 6, 'c': 5, 't': 4, 'l': 4, 'v': 3, ' ': 15},
-  'f': {'o': 10, 'e': 8, 'i': 7, 'a': 6, 'r': 5, 'l': 4, 'u': 3, ' ': 10},
-  'g': {'e': 10, 'o': 8, 'h': 7, 'i': 6, 'a': 5, 'r': 4, 'l': 3, ' ': 10},
-  'h': {'e': 20, 'a': 15, 'o': 12, 'i': 10, 'u': 6, 'y': 4, ' ': 5},
-  'i': {'n': 12, 's': 10, 't': 8, 'c': 7, 'o': 6, 'l': 5, 'd': 4, 'r': 3, ' ': 8},
-  'j': {'e': 10, 'o': 8, 'a': 6, 'u': 4, ' ': 1},
-  'k': {'e': 10, 'i': 8, 'y': 5, 'o': 4, 's': 2, ' ': 12},
-  'l': {'e': 10, 'y': 8, 'o': 7, 'a': 6, 'i': 5, 'd': 4, 'u': 3, 'l': 2, ' ': 10},
-  'm': {'e': 10, 'a': 8, 'o': 7, 'i': 6, 'u': 5, 'p': 4, 'y': 2, ' ': 10},
-  'n': {'d': 10, 'g': 9, 't': 8, 'e': 7, 'o': 6, 'a': 5, 'i': 4, ' ': 15},
-  'o': {'f': 12, 'n': 10, 'u': 8, 'r': 7, 'w': 6, 't': 5, 'm': 4, 'p': 3, ' ': 15},
-  'p': {'e': 10, 'o': 8, 'a': 7, 'r': 6, 'l': 5, 'i': 4, 'u': 3, 'y': 2, ' ': 5},
-  'q': {'u': 25, ' ': 1},
-  'r': {'e': 12, 'o': 10, 'a': 8, 'i': 7, 'n': 5, 'd': 4, 'y': 3, ' ': 15},
-  's': {'t': 12, 'h': 10, 'e': 8, 'o': 7, 'i': 6, 'a': 5, 'u': 4, 'p': 3, ' ': 18},
-  't': {'h': 22, 'e': 15, 'o': 10, 'a': 8, 'i': 7, 'r': 6, 'u': 4, 'y': 3, ' ': 20},
-  'u': {'r': 10, 's': 8, 't': 7, 'l': 6, 'n': 5, 'p': 4, 'b': 3, 'c': 2, ' ': 5},
-  'v': {'e': 15, 'o': 8, 'i': 6, 'a': 4, 'y': 2, ' ': 2},
-  'w': {'h': 12, 'a': 10, 'o': 8, 'e': 7, 'i': 6, 'r': 2, ' ': 4},
-  'x': {'t': 5, 'e': 4, 'i': 3, ' ': 8},
-  'y': {'o': 10, 'e': 6, 's': 5, 'a': 4, ' ': 20},
-  'z': {'e': 10, 'y': 5, 'o': 4, 'a': 2, ' ': 4}
+  'a': { 'n': 10, 'r': 9, 't': 8, 's': 7, 'l': 6, 'd': 5, 'c': 4, 'm': 4, 'g': 3, 'b': 2, ' ': 8 },
+  'b': { 'e': 10, 'u': 8, 'o': 7, 'a': 6, 'i': 5, 'l': 4, 'r': 4, 'y': 3, ' ': 3 },
+  'c': { 'o': 10, 'h': 9, 'e': 8, 'a': 7, 'i': 6, 'k': 5, 'l': 4, 'u': 3, 'r': 3, ' ': 2 },
+  'd': { 'e': 10, 'i': 7, 'o': 6, 'a': 5, 'u': 4, 'y': 3, 'r': 2, ' ': 12 },
+  'e': { 'r': 10, 'n': 9, 's': 8, 'd': 7, 'a': 6, 'c': 5, 't': 4, 'l': 4, 'v': 3, ' ': 15 },
+  'f': { 'o': 10, 'e': 8, 'i': 7, 'a': 6, 'r': 5, 'l': 4, 'u': 3, ' ': 10 },
+  'g': { 'e': 10, 'o': 8, 'h': 7, 'i': 6, 'a': 5, 'r': 4, 'l': 3, ' ': 10 },
+  'h': { 'e': 20, 'a': 15, 'o': 12, 'i': 10, 'u': 6, 'y': 4, ' ': 5 },
+  'i': { 'n': 12, 's': 10, 't': 8, 'c': 7, 'o': 6, 'l': 5, 'd': 4, 'r': 3, ' ': 8 },
+  'j': { 'e': 10, 'o': 8, 'a': 6, 'u': 4, ' ': 1 },
+  'k': { 'e': 10, 'i': 8, 'y': 5, 'o': 4, 's': 2, ' ': 12 },
+  'l': { 'e': 10, 'y': 8, 'o': 7, 'a': 6, 'i': 5, 'd': 4, 'u': 3, 'l': 2, ' ': 10 },
+  'm': { 'e': 10, 'a': 8, 'o': 7, 'i': 6, 'u': 5, 'p': 4, 'y': 2, ' ': 10 },
+  'n': { 'd': 10, 'g': 9, 't': 8, 'e': 7, 'o': 6, 'a': 5, 'i': 4, ' ': 15 },
+  'o': { 'f': 12, 'n': 10, 'u': 8, 'r': 7, 'w': 6, 't': 5, 'm': 4, 'p': 3, ' ': 15 },
+  'p': { 'e': 10, 'o': 8, 'a': 7, 'r': 6, 'l': 5, 'i': 4, 'u': 3, 'y': 2, ' ': 5 },
+  'q': { 'u': 25, ' ': 1 },
+  'r': { 'e': 12, 'o': 10, 'a': 8, 'i': 7, 'n': 5, 'd': 4, 'y': 3, ' ': 15 },
+  's': { 't': 12, 'h': 10, 'e': 8, 'o': 7, 'i': 6, 'a': 5, 'u': 4, 'p': 3, ' ': 18 },
+  't': { 'h': 22, 'e': 15, 'o': 10, 'a': 8, 'i': 7, 'r': 6, 'u': 4, 'y': 3, ' ': 20 },
+  'u': { 'r': 10, 's': 8, 't': 7, 'l': 6, 'n': 5, 'p': 4, 'b': 3, 'c': 2, ' ': 5 },
+  'v': { 'e': 15, 'o': 8, 'i': 6, 'a': 4, 'y': 2, ' ': 2 },
+  'w': { 'h': 12, 'a': 10, 'o': 8, 'e': 7, 'i': 6, 'r': 2, ' ': 4 },
+  'x': { 't': 5, 'e': 4, 'i': 3, ' ': 8 },
+  'y': { 'o': 10, 'e': 6, 's': 5, 'a': 4, ' ': 20 },
+  'z': { 'e': 10, 'y': 5, 'o': 4, 'a': 2, ' ': 4 }
 };
 
 // --- Global State ---
@@ -565,8 +565,8 @@ const DB_VERSION = 1;
 function initDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
-    request.onupgradeneeded = function(e) {
+
+    request.onupgradeneeded = function (e) {
       db = e.target.result;
       if (!db.objectStoreNames.contains("settings")) {
         db.createObjectStore("settings", { keyPath: "key" });
@@ -581,13 +581,13 @@ function initDatabase() {
         db.createObjectStore("personal_summary", { keyPath: "category" });
       }
     };
-    
-    request.onsuccess = function(e) {
+
+    request.onsuccess = function (e) {
       db = e.target.result;
       seedDefaults().then(resolve);
     };
-    
-    request.onerror = function(e) {
+
+    request.onerror = function (e) {
       console.error("IndexedDB initialization error:", e);
       reject(e);
     };
@@ -693,17 +693,22 @@ async function seedDefaults() {
     await setSetting("basins_of_attraction", "0");
     await setSetting("hover_brightness", "1.2");
     await setSetting("biography_text", "Name: Kay. Patient diagnosed with ALS.\nHusband: Phil. Family visits frequently.\nInterests: Loves science fiction and smart home tech.");
-    
+
     await setPersonalSummary([
-      { category: "User Info", content: "Name: Kay. Patient diagnosed with ALS. Currently retains good eye control." },
-      { category: "Relationships", content: "Husband: Phil. Family lives nearby and visits frequently." },
-      { category: "Interests", content: "Loves reading science fiction, listening to audiobooks, and keeping up with smart-home tech." }
+      { category: "User Info", content: "Name: Kay. Patient diagnosed with ALS." },
+      { category: "Relationships", content: "Husband: Pete. Family lives nearby and visits frequently." },
+      { category: "Interests", content: "Plants, nature, trolls, mixology." }
     ]);
-    
-    await saveAction("Turn on lights", "Turn on the living room lights");
-    await saveAction("Say Hello", "Say Hello, how are you today?");
-    await saveAction("Say Thank You", "Say Thank you very much!");
-    await saveAction("Type Kay", "Type Kay");
+
+    await saveAction("[laughing]", "[laughing] ");
+    await saveAction("Pete", "Pete ");
+    await saveAction("Phil", "Phil ");
+    await saveAction("hello", "hello ");
+    await saveAction("please", "please ");
+    await saveAction("thank you", "thank you ");
+    await saveAction("TTS okay?", "I'm going to speak to you through this device, if that's okay ");
+    await saveAction("I would like", "I would like ");
+    await saveAction("toggle the lights", "toggle the lights ");
   }
 }
 
@@ -716,9 +721,9 @@ function getNextCharProbabilities(prefix) {
   if (!BIGRAM_MATRIX[lastChar]) {
     return normalizeProbabilities(DEFAULT_FREQS);
   }
-  
+
   let weights = Object.assign({}, BIGRAM_MATRIX[lastChar]);
-  
+
   const alphabet = "abcdefghijklmnopqrstuvwxyz ";
   for (let i = 0; i < alphabet.length; i++) {
     const c = alphabet[i];
@@ -733,40 +738,40 @@ function getNextCharProbabilities(prefix) {
 
 function getBlendedCharProbabilities(prefix) {
   const staticProbs = getNextCharProbabilities(prefix);
-  
+
   const lastSpace = prefix.lastIndexOf(" ");
   const currentWordPrefix = lastSpace === -1 ? prefix.toLowerCase() : prefix.substring(lastSpace + 1).toLowerCase();
-  
+
   if (!currentWordPrefix) {
     return staticProbs;
   }
-  
+
   // Find matches in local dictionary and cached API predictions
   const dictMatches = DICTIONARY.filter(w => w.word.startsWith(currentWordPrefix));
   const apiMatches = lastApiPredictions.filter(w => w.word.startsWith(currentWordPrefix));
-  
+
   const dictSum = dictMatches.reduce((sum, item) => sum + item.weight, 0);
   const apiSum = apiMatches.reduce((sum, item) => sum + item.weight, 0);
-  
+
   // Combine all unique words
   const allWordSet = new Set([
     ...dictMatches.map(m => m.word),
     ...apiMatches.map(m => m.word)
   ]);
-  
+
   let candidateProbs = {};
   const alpha = apiSum > 0 ? 0.6 : 0.0; // Blend weight: 60% API, 40% Dict
-  
+
   allWordSet.forEach(word => {
     const dictMatch = dictMatches.find(m => m.word === word);
     const apiMatch = apiMatches.find(m => m.word === word);
-    
+
     const pDict = dictSum > 0 && dictMatch ? (dictMatch.weight / dictSum) : 0.0;
     const pApi = apiSum > 0 && apiMatch ? (apiMatch.weight / apiSum) : 0.0;
-    
+
     candidateProbs[word] = alpha * pApi + (1.0 - alpha) * pDict;
   });
-  
+
   let bucketProbs = {};
   for (const word in candidateProbs) {
     const prob = candidateProbs[word];
@@ -779,7 +784,7 @@ function getBlendedCharProbabilities(prefix) {
       bucketProbs[" "] = (bucketProbs[" "] || 0) + prob;
     }
   }
-  
+
   const beta = 0.7; // 70% word context, 30% bigram priors
   let blended = {};
   const alphabet = "abcdefghijklmnopqrstuvwxyz ";
@@ -789,7 +794,7 @@ function getBlendedCharProbabilities(prefix) {
     const pStatic = staticProbs[c] || 0.0;
     blended[c] = beta * pBucket + (1.0 - beta) * pStatic;
   }
-  
+
   return normalizeProbabilities(blended);
 }
 
@@ -816,16 +821,16 @@ function normalizeProbabilities(freqs) {
 function setupDwellScrolling(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  
+
   let scrollInterval = null;
   let speed = 0;
-  
+
   container.addEventListener("mousemove", (e) => {
     const rect = container.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const h = rect.height;
     const threshold = h * 0.15; // 15% top/bottom scroll boundary
-    
+
     if (y < threshold) {
       const ratio = (threshold - y) / threshold;
       speed = -ratio * 15;
@@ -847,7 +852,7 @@ function setupDwellScrolling(containerId) {
       scrollInterval = null;
     }
   });
-  
+
   container.addEventListener("mouseleave", () => {
     clearInterval(scrollInterval);
     scrollInterval = null;
@@ -857,7 +862,7 @@ function setupDwellScrolling(containerId) {
 // --- Page Setup & Listeners ---
 document.addEventListener("DOMContentLoaded", async () => {
   await initDatabase();
-  
+
   // Initialize Preferences UI
   const fontEd = await getSetting("font_size_editor", "32");
   const fontKy = await getSetting("font_size_keyboard", "24");
@@ -869,7 +874,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bio = await getSetting("biography_text", "");
   const localVoice = await getSetting("local_tts_voice", "");
   const hoverB = await getSetting("hover_brightness", "1.2");
-  
+
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
   document.getElementById("font-editor").value = fontEd;
   document.getElementById("font-keyboard").value = fontKy;
@@ -884,7 +889,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (hoverBEl) {
     hoverBEl.value = hoverB;
   }
-  
+
   // Cache globally
   settings.font_size_editor = parseInt(fontEd, 10) || 32;
   settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
@@ -898,19 +903,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.hover_brightness = parseFloat(hoverB) || 1.2;
   document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
   document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
-  
+
   // Populate local TTS Voice dropdown
   populateVoiceDropdown();
   window.speechSynthesis.onvoiceschanged = populateVoiceDropdown;
-  
+
   setupUIBindings();
   setupDwellScrolling("chat-log-scroll");
   setupDwellScrolling("actions-grid");
-  
+
   renderSavedActions();
   renderChatLog();
   updatePredictionsAndKeyboard();
-  
+
   const editor = document.getElementById("editor-box");
   editor.focus();
   editor.setSelectionRange(0, 0);
@@ -921,7 +926,7 @@ function populateVoiceDropdown() {
   const select = document.getElementById("local-tts-voice-select");
   if (!select) return;
   select.innerHTML = "";
-  
+
   const voices = window.speechSynthesis.getVoices();
   voices.forEach(voice => {
     const option = document.createElement("option");
@@ -939,38 +944,38 @@ function updateRecolorButtonColors() {
   const trigger = document.getElementById("color-dropdown-trigger");
   const recolorBtn = document.getElementById("mode-recolor");
   if (!dropdown || !recolorBtn) return;
-  
+
   const chosenColorName = dropdown.value;
   const colorMap = {
     "Blue": "#1f538d", "Green": "#2ecc71", "Red": "#e74c3c", "Orange": "#e67e22",
     "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#475569"
   };
   const hex = colorMap[chosenColorName] || "#1f538d";
-  
+
   if (trigger) {
     trigger.textContent = chosenColorName;
     trigger.style.backgroundColor = hex;
     trigger.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
   }
-  
+
   recolorBtn.style.backgroundColor = hex;
   recolorBtn.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
 }
 
 function setupUIBindings() {
   const editor = document.getElementById("editor-box");
-  
+
   // Sync predictions and keyboard state on native editor events
   editor.addEventListener("keyup", () => {
     previousCaretPosition = editor.selectionStart;
     updatePredictionsAndKeyboard();
   });
-  
+
   editor.addEventListener("input", () => {
     previousCaretPosition = editor.selectionStart;
     updatePredictionsAndKeyboard();
   });
-  
+
   editor.addEventListener("click", () => {
     if (editor.value === "Type here...") {
       editor.setSelectionRange(0, 0);
@@ -999,9 +1004,9 @@ function setupUIBindings() {
     if (activeEl && ["biography-text", "font-editor", "font-keyboard", "hover-brightness", "min-target-width", "min-target-height", "ha-url-input", "ha-token-input"].includes(activeEl.id)) {
       return; // Skip intercepting inside modal inputs
     }
-    
+
     if (e.ctrlKey || e.metaKey) return;
-    
+
     const key = e.key;
     if (activeEl !== editor) {
       if (key === "Backspace") {
@@ -1035,21 +1040,21 @@ function setupUIBindings() {
     updatePredictionsAndKeyboard();
     editor.focus();
   });
-  
+
   document.getElementById("btn-del-word").addEventListener("click", () => {
     deleteWord();
     editor.focus();
   });
-  
+
   document.getElementById("btn-del-char").addEventListener("click", () => {
     deleteChar();
     editor.focus();
   });
-  
+
   document.getElementById("btn-dictate").addEventListener("click", toggleDictation);
   document.getElementById("btn-cloud-tts").addEventListener("click", () => speakCloudTTS(editor.value));
   document.getElementById("btn-local-tts").addEventListener("click", () => speakLocalTTS(editor.value));
-  
+
   document.getElementById("btn-copy").addEventListener("click", async () => {
     if (!editor.value) return;
     try {
@@ -1060,12 +1065,12 @@ function setupUIBindings() {
       console.error(err);
     }
   });
-  
+
   document.getElementById("btn-cloud").addEventListener("click", executeSendCloud);
-  
+
   document.getElementById("btn-save").addEventListener("click", async () => {
     if (!editor.value) return;
-    
+
     if (loadedActionTag) {
       // Overwrite the currently loaded macro directly
       await saveAction(loadedActionTag, editor.value);
@@ -1117,11 +1122,11 @@ function setupUIBindings() {
       e.stopPropagation();
       colorMenu.classList.toggle("show");
     });
-    
+
     document.addEventListener("click", () => {
       colorMenu.classList.remove("show");
     });
-    
+
     const items = colorMenu.querySelectorAll(".custom-dropdown-item");
     items.forEach(item => {
       item.addEventListener("click", () => {
@@ -1140,7 +1145,7 @@ function setupUIBindings() {
     originalBiographyText = document.getElementById("biography-text").value;
     document.getElementById("settings-modal").style.display = "flex";
   });
-  
+
   document.getElementById("btn-settings-close").addEventListener("click", async () => {
     const fontEd = document.getElementById("font-editor").value;
     const fontKy = document.getElementById("font-keyboard").value;
@@ -1153,7 +1158,7 @@ function setupUIBindings() {
     const localVoice = document.getElementById("local-tts-voice-select").value;
     const hoverBEl = document.getElementById("hover-brightness");
     const hoverBrightness = hoverBEl ? hoverBEl.value : "1.2";
-    
+
     await setSetting("font_size_editor", fontEd);
     await setSetting("font_size_keyboard", fontKy);
     await setSetting("min_target_width", minW);
@@ -1164,7 +1169,7 @@ function setupUIBindings() {
     await setSetting("biography_text", bioText);
     await setSetting("local_tts_voice", localVoice);
     await setSetting("hover_brightness", hoverBrightness);
-    
+
     // Check if biography text has changed since last save/load
     if (bioText !== originalBiographyText) {
       const timestamp = new Date().toISOString();
@@ -1173,7 +1178,7 @@ function setupUIBindings() {
       // Compile biography into categories using Gemini 3.5 Flash
       executeCompileProfileFromString(bioText);
     }
-    
+
     // Update global settings cache
     settings.font_size_editor = parseInt(fontEd, 10) || 32;
     settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
@@ -1185,11 +1190,11 @@ function setupUIBindings() {
     settings.biography_text = bioText;
     settings.local_tts_voice = localVoice;
     settings.hover_brightness = parseFloat(hoverBrightness) || 1.2;
-    
+
     document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
     document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
-    
+
     updatePredictionsAndKeyboard();
     document.getElementById("settings-modal").style.display = "none";
   });
@@ -1210,7 +1215,7 @@ function setupUIBindings() {
 
   // Backup & Import Bindings
   document.getElementById("btn-export-config").addEventListener("click", exportConfiguration);
-  
+
   const fileInput = document.getElementById("import-file-input");
   document.getElementById("btn-import-config").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (e) => {
@@ -1226,7 +1231,7 @@ function insertTextAtCursor(text) {
   const start = editor.selectionStart;
   const end = editor.selectionEnd;
   const currentText = editor.value;
-  
+
   editor.value = currentText.substring(0, start) + text + currentText.substring(end);
   editor.selectionStart = editor.selectionEnd = start + text.length;
   previousCaretPosition = editor.selectionStart;
@@ -1238,7 +1243,7 @@ function deleteChar() {
   const start = editor.selectionStart;
   const end = editor.selectionEnd;
   const currentText = editor.value;
-  
+
   if (start !== end) {
     editor.value = currentText.substring(0, start) + currentText.substring(end);
     editor.selectionStart = editor.selectionEnd = start;
@@ -1255,7 +1260,7 @@ function deleteNextChar() {
   const start = editor.selectionStart;
   const end = editor.selectionEnd;
   const currentText = editor.value;
-  
+
   if (start !== end) {
     editor.value = currentText.substring(0, start) + currentText.substring(end);
     editor.selectionStart = editor.selectionEnd = start;
@@ -1271,12 +1276,12 @@ function deleteWord() {
   const editor = document.getElementById("editor-box");
   const start = editor.selectionStart;
   const currentText = editor.value;
-  
+
   const textBefore = currentText.substring(0, start);
   const words = textBefore.trimEnd().split(" ");
   words.pop();
   const rest = words.join(" ") + (words.length ? " " : "");
-  
+
   editor.value = rest + currentText.substring(start);
   editor.selectionStart = editor.selectionEnd = rest.length;
   previousCaretPosition = editor.selectionStart;
@@ -1289,44 +1294,44 @@ function updatePredictionsAndKeyboard() {
   const text = editor.value;
   const start = editor.selectionStart;
   const end = editor.selectionEnd;
-  
+
   const textBefore = text.substring(0, start);
   const textAfter = text.substring(end);
-  
+
   // Calculate current word prefix matching
   const lastSpace = textBefore.lastIndexOf(" ");
   const wordPrefix = lastSpace === -1 ? textBefore.toLowerCase() : textBefore.substring(lastSpace + 1).toLowerCase();
-  
+
   // 1. Core Character Probability Calculation (blended)
   const charProbs = getBlendedCharProbabilities(textBefore);
-  
+
   // 2. Word Predictions: Filter words starting with current typed prefix, blend & sort by weight descending
   let wordCompletions = [];
   if (wordPrefix) {
     const dictMatches = DICTIONARY.filter(w => w.word.startsWith(wordPrefix));
     const apiMatches = lastApiPredictions.filter(w => w.word.startsWith(wordPrefix));
-    
+
     const dictSum = dictMatches.reduce((sum, item) => sum + item.weight, 0);
     const apiSum = apiMatches.reduce((sum, item) => sum + item.weight, 0);
-    
+
     const allWordSet = new Set([
       ...dictMatches.map(m => m.word),
       ...apiMatches.map(m => m.word)
     ]);
-    
+
     const alpha = apiSum > 0 ? 0.6 : 0.0;
     let blendedList = [];
     allWordSet.forEach(word => {
       const dictMatch = dictMatches.find(m => m.word === word);
       const apiMatch = apiMatches.find(m => m.word === word);
-      
+
       const pDict = dictSum > 0 && dictMatch ? (dictMatch.weight / dictSum) : 0.0;
       const pApi = apiSum > 0 && apiMatch ? (apiMatch.weight / apiSum) : 0.0;
-      
+
       const prob = alpha * pApi + (1.0 - alpha) * pDict;
       blendedList.push({ word, prob });
     });
-    
+
     blendedList.sort((a, b) => b.prob - a.prob);
     wordCompletions = blendedList.map(item => item.word);
   } else {
@@ -1338,7 +1343,7 @@ function updatePredictionsAndKeyboard() {
     }
   }
   renderWordPredictions(wordCompletions.slice(0, 10), wordPrefix);
-  
+
   // 3. Phrase Predictions & Next-Word Background Predictions Fetch: Trigger at word boundaries
   const isBoundary = (textBefore.length === 0 || textBefore.endsWith(" ") || textBefore.endsWith("\n") || textBefore.endsWith("\r"));
   if (isBoundary) {
@@ -1354,7 +1359,7 @@ function updatePredictionsAndKeyboard() {
     // Clear phrase completions inside the middle of a word
     document.getElementById("phrase-predictions").innerHTML = "";
   }
-  
+
   // 4. Redraw Keyboard probabilities HSL coloring
   renderKeyboard(charProbs);
 }
@@ -1365,38 +1370,38 @@ function updatePredictionsAndKeyboardOnly() {
   const text = editor.value;
   const start = editor.selectionStart;
   const textBefore = text.substring(0, start);
-  
+
   const lastSpace = textBefore.lastIndexOf(" ");
   const wordPrefix = lastSpace === -1 ? textBefore.toLowerCase() : textBefore.substring(lastSpace + 1).toLowerCase();
-  
+
   const charProbs = getBlendedCharProbabilities(textBefore);
-  
+
   let wordCompletions = [];
   if (wordPrefix) {
     const dictMatches = DICTIONARY.filter(w => w.word.startsWith(wordPrefix));
     const apiMatches = lastApiPredictions.filter(w => w.word.startsWith(wordPrefix));
-    
+
     const dictSum = dictMatches.reduce((sum, item) => sum + item.weight, 0);
     const apiSum = apiMatches.reduce((sum, item) => sum + item.weight, 0);
-    
+
     const allWordSet = new Set([
       ...dictMatches.map(m => m.word),
       ...apiMatches.map(m => m.word)
     ]);
-    
+
     const alpha = apiSum > 0 ? 0.6 : 0.0;
     let blendedList = [];
     allWordSet.forEach(word => {
       const dictMatch = dictMatches.find(m => m.word === word);
       const apiMatch = apiMatches.find(m => m.word === word);
-      
+
       const pDict = dictSum > 0 && dictMatch ? (dictMatch.weight / dictSum) : 0.0;
       const pApi = apiSum > 0 && apiMatch ? (apiMatch.weight / apiSum) : 0.0;
-      
+
       const prob = alpha * pApi + (1.0 - alpha) * pDict;
       blendedList.push({ word, prob });
     });
-    
+
     blendedList.sort((a, b) => b.prob - a.prob);
     wordCompletions = blendedList.map(item => item.word);
   } else {
@@ -1427,7 +1432,7 @@ async function executeFetchWords(textBefore, prefix) {
 
     const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
     if (activeWordsAbortController !== controller) return;
-    
+
     const res = await fetch("/api/predict-words", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1438,7 +1443,7 @@ async function executeFetchWords(textBefore, prefix) {
       }),
       signal: signal
     });
-    
+
     const data = await res.json();
     if (activeWordsAbortController !== controller) return;
 
@@ -1460,18 +1465,18 @@ async function executeFetchWords(textBefore, prefix) {
 function renderWordPredictions(words, prefix) {
   const container = document.getElementById("word-predictions");
   container.innerHTML = "";
-  
+
   words.forEach(word => {
     const btn = document.createElement("button");
     btn.className = "predict-btn";
-    
+
     // Highlight suffix text and gray out prefix
     if (prefix && word.startsWith(prefix)) {
       btn.innerHTML = `<span class="prefix">${prefix}</span>${word.substring(prefix.length)}`;
     } else {
       btn.textContent = word;
     }
-    
+
     btn.onclick = () => {
       const editor = document.getElementById("editor-box");
       const start = editor.selectionStart;
@@ -1479,14 +1484,14 @@ function renderWordPredictions(words, prefix) {
       const textBefore = currentText.substring(0, start);
       const lastSpace = textBefore.lastIndexOf(" ");
       const newTextBefore = (lastSpace === -1 ? "" : textBefore.substring(0, lastSpace + 1)) + word + " ";
-      
+
       editor.value = newTextBefore + currentText.substring(start);
       editor.selectionStart = editor.selectionEnd = newTextBefore.length;
       previousCaretPosition = editor.selectionStart;
-      
+
       // Clear cached predictions on selection boundary trigger
       lastApiPredictions = [];
-      
+
       updatePredictionsAndKeyboard();
       editor.focus();
     };
@@ -1504,9 +1509,9 @@ async function executeFetchPhrases(textBefore, textAfter) {
 
   const container = document.getElementById("phrase-predictions");
   const thinking = document.getElementById("phrase-thinking");
-  
+
   thinking.style.display = "inline";
-  
+
   try {
     const history = await getChatHistory();
     if (activePhrasesAbortController !== controller) return;
@@ -1516,7 +1521,7 @@ async function executeFetchPhrases(textBefore, textAfter) {
 
     const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
     if (activePhrasesAbortController !== controller) return;
-    
+
     const res = await fetch("/api/predict-phrases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1528,7 +1533,7 @@ async function executeFetchPhrases(textBefore, textAfter) {
       }),
       signal: signal
     });
-    
+
     const data = await res.json();
     if (activePhrasesAbortController !== controller) return;
 
@@ -1550,21 +1555,21 @@ async function executeFetchPhrases(textBefore, textAfter) {
 function renderPhrasePredictions(phrases, textBefore, textAfter) {
   const container = document.getElementById("phrase-predictions");
   container.innerHTML = "";
-  
+
   phrases.forEach(phrase => {
     const btn = document.createElement("button");
     btn.className = "predict-btn";
     btn.textContent = phrase;
-    
+
     btn.onclick = () => {
       const editor = document.getElementById("editor-box");
-      
+
       // Replace whole text preceding caret with completion
       const completedTextBefore = textBefore + phrase + " ";
       editor.value = completedTextBefore + textAfter;
       editor.selectionStart = editor.selectionEnd = completedTextBefore.length;
       previousCaretPosition = editor.selectionStart;
-      
+
       updatePredictionsAndKeyboard();
       editor.focus();
     };
@@ -1575,7 +1580,7 @@ function renderPhrasePredictions(phrases, textBefore, textAfter) {
 function renderKeyboard(probabilities) {
   const container = document.getElementById("keyboard");
   container.innerHTML = "";
-  
+
   const layout = [
     ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
     ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -1583,19 +1588,19 @@ function renderKeyboard(probabilities) {
     ["z", "x", "c", "v", "b", "n", "m", ",", "."],
     ["Shift", "Space", "Backspace"]
   ];
-  
+
   const fontKy = settings.font_size_keyboard;
   const maxObserved = Math.max(...Object.values(probabilities));
-  
+
   layout.forEach((row, rowIdx) => {
     const rowDiv = document.createElement("div");
     rowDiv.className = "keyboard-row";
-    
+
     row.forEach(key => {
       const keyBtn = document.createElement("div");
       keyBtn.className = "key";
       keyBtn.style.fontSize = `${fontKy}px`;
-      
+
       // Base layouts weights
       if (rowIdx === 4) {
         // Space, Shift, Backspace
@@ -1614,24 +1619,24 @@ function renderKeyboard(probabilities) {
         // Standard QWERTY character keys
         keyBtn.textContent = shiftActive ? key.toUpperCase() : key.toLowerCase();
         keyBtn.style.flex = "1";
-        
+
         // HSL Dynamic coloring
         const prob = probabilities[key.toLowerCase()] || 0;
         const ratio = maxObserved > 0 ? Math.min(1.0, prob / maxObserved) : 0;
-        
+
         const hue = Math.round(ratio * 120); // Scale Hue Red/Gray (0) -> Green (120)
         const sat = Math.round(15 + ratio * 65); // Saturation scales up with prob
         const lit = Math.round(25 + ratio * 15);  // Lightness scales up slightly
-        
+
         keyBtn.style.backgroundColor = `hsl(${hue}, ${sat}%, ${lit}%)`;
         keyBtn.style.borderColor = `hsl(${hue}, ${sat}%, ${lit + 5}%)`;
       }
-      
+
       // Key Tap dispatch handlers
       keyBtn.onclick = () => {
         const editor = document.getElementById("editor-box");
         editor.focus();
-        
+
         if (key === "Shift") {
           shiftActive = !shiftActive;
           renderKeyboard(probabilities);
@@ -1649,10 +1654,10 @@ function renderKeyboard(probabilities) {
           }
         }
       };
-      
+
       rowDiv.appendChild(keyBtn);
     });
-    
+
     container.appendChild(rowDiv);
   });
 }
@@ -1693,17 +1698,17 @@ function setupHoverPreview(element, text) {
 async function renderSavedActions() {
   const grid = document.getElementById("actions-grid");
   grid.innerHTML = "";
-  
+
   const saved = await getSavedActions();
-  
+
   // Sort chronologically (latest last)
   saved.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-  
+
   saved.forEach(action => {
     const card = document.createElement("div");
     card.className = "action-card";
     card.textContent = action.tag;
-    
+
     // Apply macro card background colors if set in database
     if (action.color) {
       card.style.backgroundColor = action.color;
@@ -1711,22 +1716,22 @@ async function renderSavedActions() {
       const isBright = ["#2ecc71", "#f1c40f", "#1abc9c", "Yellow", "Green", "Teal"].some(c => action.color.includes(c));
       card.style.color = isBright ? "black" : "white";
     }
-    
+
     // Hover tooltips for preview bar
     setupHoverPreview(card, `Macro Preview: "${action.action_text}"`);
-    
+
     // Click macro behaviour based on Action Mode selector
     card.onclick = async () => {
       executeActionByMode(action.tag, action.action_text);
     };
-    
+
     grid.appendChild(card);
   });
 }
 
 async function executeActionByMode(tag, action_text) {
   const editor = document.getElementById("editor-box");
-  
+
   if (activeMode === "Edit") {
     // Insert text at cursor, leaving selection caret at end
     insertTextAtCursor(action_text);
@@ -1771,14 +1776,14 @@ async function executeSendCloud() {
   const editor = document.getElementById("editor-box");
   const text = editor.value;
   if (!text.trim()) return;
-  
+
   addChatMessage("user", text);
   renderChatLog();
   editor.value = "";
   previousCaretPosition = 0;
   loadedActionTag = null; // Clear macro selection
   updatePredictionsAndKeyboard();
-  
+
   // Show temporary "Thinking..." bubble in chat log
   const log = document.getElementById("chat-log-scroll");
   const thinkingDiv = document.createElement("div");
@@ -1786,17 +1791,17 @@ async function executeSendCloud() {
   thinkingDiv.textContent = "Cloud AI is thinking...";
   log.appendChild(thinkingDiv);
   log.scrollTop = log.scrollHeight;
-  
+
   const history = await getChatHistory();
   const summaryList = await getPersonalSummary();
   const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
-  
+
   const haUrl = await getSetting("home_assistant_url", "");
   const haToken = await getSetting("home_assistant_token", "");
-  
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
-  
+
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -1810,18 +1815,18 @@ async function executeSendCloud() {
       }),
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     // Remove "Thinking..." bubble
     thinkingDiv.remove();
-    
+
     const data = await res.json();
     if (data.reply) {
       await addChatMessage("cloud_ai", data.reply);
       renderChatLog();
       renderSuggestions(data.suggestions);
-      
+
       // Execute returned client-side actions (TTS, inject copy, HA status updates)
       if (data.client_actions && Array.isArray(data.client_actions)) {
         for (const action of data.client_actions) {
@@ -1856,11 +1861,11 @@ async function executeSendCloud() {
 function renderSuggestions(suggestions) {
   // Renders suggestions inline inside actions grid
   const grid = document.getElementById("actions-grid");
-  
+
   // Clear any previously rendered suggestions to avoid accumulation
   const existingSuggestions = grid.querySelectorAll(".suggestion-card");
   existingSuggestions.forEach(el => el.remove());
-  
+
   suggestions.forEach(sug => {
     const card = document.createElement("div");
     card.className = "action-card suggestion-card";
@@ -1868,9 +1873,9 @@ function renderSuggestions(suggestions) {
     card.style.borderColor = "var(--color-success)";
     card.style.color = "#fff";
     card.textContent = sug.tag;
-    
+
     setupHoverPreview(card, `Suggestion Preview: "${sug.action_text}"`);
-    
+
     card.onclick = () => {
       executeActionByMode(sug.tag, sug.action_text);
     };
@@ -1882,26 +1887,26 @@ function renderSuggestions(suggestions) {
 // --- Voice Synthesis Player ---
 async function speakCloudTTS(text) {
   if (!text.trim()) return;
-  
+
   const cloudBtn = document.getElementById("btn-cloud-tts");
   const localBtn = document.getElementById("btn-local-tts");
-  
+
   // If clicked while already speaking, cancel it!
   if (isSpeakingCloud) {
     cancelCloudTTS();
     return;
   }
-  
+
   // Start speaking cloud TTS
   isSpeakingCloud = true;
   if (cloudBtn) cloudBtn.textContent = "Speaking...";
   if (localBtn) localBtn.disabled = true;
-  
+
   addChatMessage("system", `Speaking (CloudTTS): "${text}"`);
   renderChatLog();
-  
+
   activeTTSAbortController = new AbortController();
-  
+
   try {
     const res = await fetch("/api/tts", {
       method: "POST",
@@ -1913,15 +1918,15 @@ async function speakCloudTTS(text) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       currentPlayingAudio = new Audio(url);
-      
+
       currentPlayingAudio.onended = () => {
         resetCloudTTSButtons();
       };
-      
+
       currentPlayingAudio.onerror = () => {
         resetCloudTTSButtons();
       };
-      
+
       await currentPlayingAudio.play();
     } else {
       addChatMessage("system", "Cloud TTS failed. Falling back to local TTS.");
@@ -1962,53 +1967,53 @@ function resetCloudTTSButtons() {
 
 function speakLocalTTS(text) {
   if (!text.trim()) return;
-  
+
   const cloudBtn = document.getElementById("btn-cloud-tts");
   const localBtn = document.getElementById("btn-local-tts");
-  
+
   // If clicked while already speaking, cancel it!
   if (isSpeakingLocal) {
     cancelLocalTTS();
     return;
   }
-  
+
   // Start speaking local TTS
   isSpeakingLocal = true;
   if (localBtn) localBtn.textContent = "Speaking...";
   if (cloudBtn) cloudBtn.disabled = true;
-  
+
   addChatMessage("system", `Speaking (LocalTTS): "${text}"`);
   renderChatLog();
-  
+
   try {
     window.speechSynthesis.cancel(); // Cancel any current speech
-    
+
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
-    
+
     // Find the voice selected in settings
     let selectedVoice = null;
     if (settings.local_tts_voice) {
       selectedVoice = voices.find(v => v.name === settings.local_tts_voice);
     }
-    
+
     // Fallback if no selected voice or not found
     if (!selectedVoice) {
       selectedVoice = voices.find(v => v.lang.startsWith("en-") && v.name.includes("Google")) || voices.find(v => v.lang.startsWith("en-"));
     }
-    
+
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
-    
+
     utterance.onend = () => {
       resetLocalTTSButtons();
     };
-    
+
     utterance.onerror = () => {
       resetLocalTTSButtons();
     };
-    
+
     window.speechSynthesis.speak(utterance);
   } catch (err) {
     console.error("Local speech failed:", err);
@@ -2035,29 +2040,29 @@ function resetLocalTTSButtons() {
 async function toggleDictation() {
   const dictateBtn = document.getElementById("btn-dictate");
   const editor = document.getElementById("editor-box");
-  
+
   if (!isRecording) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
-      
+
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunks.push(e.data);
       };
-      
+
       mediaRecorder.onstop = async () => {
         dictateBtn.textContent = "Working...";
         dictateBtn.className = "btn btn-orange";
         dictateBtn.disabled = true;
-        
+
         const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
         const formData = new FormData();
         formData.append("file", audioBlob, "recording.wav");
-        
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
-        
+
         try {
           const res = await fetch("/api/transcribe", {
             method: "POST",
@@ -2083,7 +2088,7 @@ async function toggleDictation() {
           dictateBtn.disabled = false;
         }
       };
-      
+
       mediaRecorder.start();
       isRecording = true;
       dictateBtn.textContent = "Listening...";
@@ -2109,7 +2114,7 @@ async function executeCompileProfileFromString(text) {
   try {
     const formData = new FormData();
     formData.append("profile_text", text);
-    
+
     const res = await fetch("/api/compile-profile", {
       method: "POST",
       body: formData
@@ -2139,7 +2144,7 @@ async function exportConfiguration() {
   const actionsReq = txn.objectStore("saved_actions").getAll();
   const summaryReq = txn.objectStore("personal_summary").getAll();
   const chatReq = txn.objectStore("chat_history").getAll();
-  
+
   txn.oncomplete = () => {
     const data = {
       settings: settingsReq.result,
@@ -2163,7 +2168,7 @@ async function importConfiguration(file) {
     try {
       const data = JSON.parse(e.target.result);
       const txn = db.transaction(["settings", "saved_actions", "personal_summary", "chat_history"], "readwrite");
-      
+
       if (data.settings) {
         const store = txn.objectStore("settings");
         store.clear();
@@ -2184,7 +2189,7 @@ async function importConfiguration(file) {
         store.clear();
         data.chat_history.forEach(item => store.put(item));
       }
-      
+
       txn.oncomplete = () => {
         alert("Configuration backup imported successfully! Reloading page...");
         window.location.reload();
@@ -2203,11 +2208,11 @@ async function renderChatLog() {
   list.forEach(msg => {
     const div = document.createElement("div");
     div.className = `chat-message ${msg.role}`;
-    
+
     let prefix = "System: ";
     if (msg.role === "user") prefix = "You: ";
     else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
-    
+
     div.textContent = `${prefix}${msg.content}`;
     log.appendChild(div);
   });
