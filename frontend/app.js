@@ -549,6 +549,7 @@ let settings = {
   home_assistant_token: "",
   biography_text: "",
   local_tts_voice: "",
+  elevenlabs_voice: "ClZAMU8VhxAvE2PP3kqR",
   hover_brightness: 1.2
 };
 
@@ -873,6 +874,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const haToken = await getSetting("home_assistant_token", "");
   const bio = await getSetting("biography_text", "");
   const localVoice = await getSetting("local_tts_voice", "");
+  const elevenlabsVoice = await getSetting("elevenlabs_voice", "ClZAMU8VhxAvE2PP3kqR");
   const hoverB = await getSetting("hover_brightness", "1.2");
 
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
@@ -900,6 +902,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.home_assistant_token = haToken;
   settings.biography_text = bio;
   settings.local_tts_voice = localVoice;
+  settings.elevenlabs_voice = elevenlabsVoice;
   settings.hover_brightness = parseFloat(hoverB) || 1.2;
   document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
   document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
@@ -907,6 +910,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Populate local TTS Voice dropdown
   populateVoiceDropdown();
   window.speechSynthesis.onvoiceschanged = populateVoiceDropdown;
+
+  // Populate ElevenLabs Voice dropdown
+  await populateElevenLabsDropdown();
 
   setupUIBindings();
   setupDwellScrolling("chat-log-scroll");
@@ -936,6 +942,84 @@ function populateVoiceDropdown() {
       option.selected = true;
     }
     select.appendChild(option);
+  });
+}
+
+let elevenLabsVoicesList = []; // Cache list of ElevenLabs voices in memory
+let activePreviewAudio = null; // Track current playing preview audio
+
+async function populateElevenLabsDropdown() {
+  const select = document.getElementById("elevenlabs-voice-select");
+  if (!select) return;
+  select.innerHTML = "";
+
+  try {
+    const res = await fetch("/api/elevenlabs-voices");
+    if (res.ok) {
+      elevenLabsVoicesList = await res.json();
+    } else {
+      console.error("Failed to load ElevenLabs voices");
+    }
+  } catch (err) {
+    console.error("Error loading ElevenLabs voices:", err);
+  }
+
+  // Fallback default list if fetch fails or returns empty
+  if (!elevenLabsVoicesList || elevenLabsVoicesList.length === 0) {
+    elevenLabsVoicesList = [
+      { voice_id: "ClZAMU8VhxAvE2PP3kqR", name: "Kay's beautiful voice (professional)", preview_url: null },
+      { voice_id: "URdpYjdnCOSIXKpzB6KE", name: "Kay's beautiful voice 1 (cloned)", preview_url: null },
+      { voice_id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice (premade)", preview_url: "https://media.elevenlabs.io/voices/Xb7hH8MSUJpSbSDYk0k2/previews/14f2e96d-35bd-4473-b3c1-b0e6e737c355.mp3" }
+    ];
+  }
+
+  elevenLabsVoicesList.forEach(voice => {
+    const option = document.createElement("option");
+    option.value = voice.voice_id;
+    option.textContent = `${voice.name} (${voice.voice_id})`;
+    if (voice.voice_id === settings.elevenlabs_voice) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+
+  // Bind change event listener for audio preview
+  select.addEventListener("change", async () => {
+    const selectedVoiceId = select.value;
+    const voice = elevenLabsVoicesList.find(v => v.voice_id === selectedVoiceId);
+    if (!voice) return;
+
+    // Stop current preview if playing
+    if (activePreviewAudio) {
+      activePreviewAudio.pause();
+      activePreviewAudio = null;
+    }
+
+    // Always generate live TTS preview saying "Hello, this is [name]"
+    try {
+      const phrase = `Hello, this is ${voice.name}.`;
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: phrase,
+          voice_id: selectedVoiceId
+        })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        activePreviewAudio = new Audio(url);
+        activePreviewAudio.play().catch(err => console.warn("Failed to play generated preview audio:", err));
+      } else {
+        const errData = await res.json().catch(() => ({ detail: "Unknown error" }));
+        const errMsg = errData.detail || "Server error";
+        console.error("Failed to generate live preview audio:", errMsg);
+        alert(`Could not play preview for ${voice.name}:\n${errMsg}`);
+      }
+    } catch (err) {
+      console.error("Error generating live preview:", err);
+    }
   });
 }
 
@@ -1156,8 +1240,15 @@ function setupUIBindings() {
     const haToken = document.getElementById("ha-token-input").value;
     const bioText = document.getElementById("biography-text").value;
     const localVoice = document.getElementById("local-tts-voice-select").value;
+    const elevenlabsVoice = document.getElementById("elevenlabs-voice-select").value;
     const hoverBEl = document.getElementById("hover-brightness");
     const hoverBrightness = hoverBEl ? hoverBEl.value : "1.2";
+
+    // Stop preview audio if playing
+    if (activePreviewAudio) {
+      activePreviewAudio.pause();
+      activePreviewAudio = null;
+    }
 
     await setSetting("font_size_editor", fontEd);
     await setSetting("font_size_keyboard", fontKy);
@@ -1168,6 +1259,7 @@ function setupUIBindings() {
     await setSetting("home_assistant_token", haToken);
     await setSetting("biography_text", bioText);
     await setSetting("local_tts_voice", localVoice);
+    await setSetting("elevenlabs_voice", elevenlabsVoice);
     await setSetting("hover_brightness", hoverBrightness);
 
     // Check if biography text has changed since last save/load
@@ -1189,6 +1281,7 @@ function setupUIBindings() {
     settings.home_assistant_token = haToken;
     settings.biography_text = bioText;
     settings.local_tts_voice = localVoice;
+    settings.elevenlabs_voice = elevenlabsVoice;
     settings.hover_brightness = parseFloat(hoverBrightness) || 1.2;
 
     document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
@@ -1910,8 +2003,13 @@ async function speakCloudTTS(text) {
   try {
     const res = await fetch("/api/tts", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: text,
+        voice_id: settings.elevenlabs_voice || "ClZAMU8VhxAvE2PP3kqR"
+      }),
       signal: activeTTSAbortController.signal
     });
     if (res.ok) {

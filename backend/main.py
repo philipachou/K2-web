@@ -67,6 +67,7 @@ class WordPredictionRequest(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
+    voice_id: str = "ClZAMU8VhxAvE2PP3kqR"
 
 # Define Gemini Tools
 def speak_phrase(phrase: str) -> str:
@@ -430,13 +431,68 @@ def transcribe(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/elevenlabs-voices")
+async def get_elevenlabs_voices():
+    # Predefined default voices list in preferred order
+    default_voices = [
+        {"voice_id": "ClZAMU8VhxAvE2PP3kqR", "name": "Kay's beautiful voice (professional)", "preview_url": None},
+        {"voice_id": "URdpYjdnCOSIXKpzB6KE", "name": "Kay's beautiful voice 1 (cloned)", "preview_url": None},
+        {"voice_id": "Xb7hH8MSUJpSbSDYk0k2", "name": "Alice (premade)", "preview_url": "https://media.elevenlabs.io/voices/Xb7hH8MSUJpSbSDYk0k2/previews/14f2e96d-35bd-4473-b3c1-b0e6e737c355.mp3"}
+    ]
+    
+    if not ELEVENLABS_API_KEY:
+        return default_voices
+        
+    try:
+        headers = {
+            "xi-api-key": ELEVENLABS_API_KEY
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.get("https://api.elevenlabs.io/v1/voices", headers=headers, timeout=5.0)
+            if response.status_code == 200:
+                data = response.json()
+                fetched_voices = data.get("voices", [])
+                
+                result = []
+                fetched_map = {v["voice_id"]: v for v in fetched_voices}
+                
+                # First add default voices with their latest names and previews from API if available
+                for dv in default_voices:
+                    v_id = dv["voice_id"]
+                    if v_id in fetched_map:
+                        result.append({
+                            "voice_id": v_id,
+                            "name": fetched_map[v_id].get("name", dv["name"]),
+                            "preview_url": fetched_map[v_id].get("preview_url")
+                        })
+                    else:
+                        result.append(dv)
+                
+                # Add other voices from user's account
+                added_ids = {dv["voice_id"] for dv in default_voices}
+                for v in fetched_voices:
+                    v_id = v["voice_id"]
+                    if v_id not in added_ids:
+                        result.append({
+                            "voice_id": v_id,
+                            "name": v.get("name"),
+                            "preview_url": v.get("preview_url")
+                        })
+                return result
+            else:
+                return default_voices
+    except Exception as e:
+        print(f"Error fetching ElevenLabs voices: {e}")
+        return default_voices
+
 @app.post("/api/tts")
 async def tts(request: TTSRequest):
     if not ELEVENLABS_API_KEY:
         raise HTTPException(status_code=400, detail="ElevenLabs API Key not configured")
         
     try:
-        url = "https://api.elevenlabs.io/v1/text-to-speech/Xb7hH8MSUJpSbSDYk0k2"
+        voice_id = request.voice_id or "ClZAMU8VhxAvE2PP3kqR"
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         headers = {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
