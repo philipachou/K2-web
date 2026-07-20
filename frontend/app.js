@@ -549,7 +549,7 @@ let settings = {
   home_assistant_token: "",
   biography_text: "",
   local_tts_voice: "",
-  elevenlabs_voice: "ClZAMU8VhxAvE2PP3kqR",
+  elevenlabs_voice: "URdpYjdnCOSIXKpzB6KE",
   hover_brightness: 1.2
 };
 
@@ -874,7 +874,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const haToken = await getSetting("home_assistant_token", "");
   const bio = await getSetting("biography_text", "");
   const localVoice = await getSetting("local_tts_voice", "");
-  const elevenlabsVoice = await getSetting("elevenlabs_voice", "ClZAMU8VhxAvE2PP3kqR");
+  let elevenlabsVoice = await getSetting("elevenlabs_voice", "URdpYjdnCOSIXKpzB6KE");
+  if (elevenlabsVoice === "ClZAMU8VhxAvE2PP3kqR") {
+    elevenlabsVoice = "URdpYjdnCOSIXKpzB6KE";
+    await setSetting("elevenlabs_voice", "URdpYjdnCOSIXKpzB6KE");
+  }
   const hoverB = await getSetting("hover_brightness", "1.2");
 
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
@@ -967,8 +971,8 @@ async function populateElevenLabsDropdown() {
   // Fallback default list if fetch fails or returns empty
   if (!elevenLabsVoicesList || elevenLabsVoicesList.length === 0) {
     elevenLabsVoicesList = [
-      { voice_id: "ClZAMU8VhxAvE2PP3kqR", name: "Kay's beautiful voice (professional)", preview_url: null },
       { voice_id: "URdpYjdnCOSIXKpzB6KE", name: "Kay's beautiful voice 1 (cloned)", preview_url: null },
+      { voice_id: "ClZAMU8VhxAvE2PP3kqR", name: "Kay's beautiful voice (professional)", preview_url: null },
       { voice_id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice (premade)", preview_url: "https://media.elevenlabs.io/voices/Xb7hH8MSUJpSbSDYk0k2/previews/14f2e96d-35bd-4473-b3c1-b0e6e737c355.mp3" }
     ];
   }
@@ -2008,7 +2012,7 @@ async function speakCloudTTS(text) {
       },
       body: JSON.stringify({
         text: text,
-        voice_id: settings.elevenlabs_voice || "ClZAMU8VhxAvE2PP3kqR"
+        voice_id: settings.elevenlabs_voice || "URdpYjdnCOSIXKpzB6KE"
       }),
       signal: activeTTSAbortController.signal
     });

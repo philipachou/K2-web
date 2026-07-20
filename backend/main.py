@@ -67,7 +67,7 @@ class WordPredictionRequest(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
-    voice_id: str = "ClZAMU8VhxAvE2PP3kqR"
+    voice_id: str = "URdpYjdnCOSIXKpzB6KE"
 
 # Define Gemini Tools
 def speak_phrase(phrase: str) -> str:
@@ -435,8 +435,8 @@ def transcribe(file: UploadFile = File(...)):
 async def get_elevenlabs_voices():
     # Predefined default voices list in preferred order
     default_voices = [
-        {"voice_id": "ClZAMU8VhxAvE2PP3kqR", "name": "Kay's beautiful voice (professional)", "preview_url": None},
         {"voice_id": "URdpYjdnCOSIXKpzB6KE", "name": "Kay's beautiful voice 1 (cloned)", "preview_url": None},
+        {"voice_id": "ClZAMU8VhxAvE2PP3kqR", "name": "Kay's beautiful voice (professional)", "preview_url": None},
         {"voice_id": "Xb7hH8MSUJpSbSDYk0k2", "name": "Alice (premade)", "preview_url": "https://media.elevenlabs.io/voices/Xb7hH8MSUJpSbSDYk0k2/previews/14f2e96d-35bd-4473-b3c1-b0e6e737c355.mp3"}
     ]
     
@@ -491,7 +491,7 @@ async def tts(request: TTSRequest):
         raise HTTPException(status_code=400, detail="ElevenLabs API Key not configured")
         
     try:
-        voice_id = request.voice_id or "ClZAMU8VhxAvE2PP3kqR"
+        voice_id = request.voice_id or "URdpYjdnCOSIXKpzB6KE"
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         headers = {
             "Accept": "audio/mpeg",
