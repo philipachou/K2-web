@@ -550,7 +550,9 @@ let settings = {
   biography_text: "",
   local_tts_voice: "",
   elevenlabs_voice: "URdpYjdnCOSIXKpzB6KE",
-  hover_brightness: 1.2
+  hover_brightness: 1.2,
+  use_os_keyboard: 0,
+  auto_hide_k2_keyboard: 0
 };
 
 // Macro state tracking
@@ -880,6 +882,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setSetting("elevenlabs_voice", "URdpYjdnCOSIXKpzB6KE");
   }
   const hoverB = await getSetting("hover_brightness", "1.2");
+  const useOS = await getSetting("use_os_keyboard", "0");
+  const autoHide = await getSetting("auto_hide_k2_keyboard", "0");
 
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
   document.getElementById("font-editor").value = fontEd;
@@ -887,6 +891,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("min-target-width").value = minW;
   document.getElementById("min-target-height").value = minH;
   document.getElementById("basins-of-attraction-toggle").checked = (basins === "1");
+  document.getElementById("use-os-keyboard-toggle").checked = (useOS === "1");
+  document.getElementById("auto-hide-k2-keyboard-toggle").checked = (autoHide === "1");
   document.getElementById("ha-url-input").value = haUrl;
   document.getElementById("ha-token-input").value = haToken;
   document.getElementById("biography-text").value = bio;
@@ -902,6 +908,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.min_target_width = parseInt(minW, 10) || 50;
   settings.min_target_height = parseInt(minH, 10) || 40;
   settings.basins_of_attraction = basins === "1" ? 1 : 0;
+  settings.use_os_keyboard = useOS === "1" ? 1 : 0;
+  settings.auto_hide_k2_keyboard = autoHide === "1" ? 1 : 0;
   settings.home_assistant_url = haUrl;
   settings.home_assistant_token = haToken;
   settings.biography_text = bio;
@@ -926,11 +934,84 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderChatLog();
   updatePredictionsAndKeyboard();
 
+  // OS and Auto-Hide Keyboard UI Bindings
+  const editorBox = document.getElementById("editor-box");
+  const keyboardWrapper = document.querySelector(".keyboard-panel-wrapper");
+  const appCont = document.querySelector(".app-container");
+  const cLog = document.getElementById("chat-log-scroll");
+
+  editorBox.addEventListener("focus", () => {
+    if (settings.use_os_keyboard === 0 && settings.auto_hide_k2_keyboard === 1) {
+      keyboardWrapper.classList.add("open");
+      if (appCont) {
+        appCont.classList.add("keyboard-open");
+      }
+      setTimeout(() => {
+        if (cLog) {
+          cLog.scrollTop = cLog.scrollHeight;
+        }
+      }, 100);
+    }
+  });
+
+  editorBox.addEventListener("blur", () => {
+    if (settings.use_os_keyboard === 0 && settings.auto_hide_k2_keyboard === 1) {
+      setTimeout(() => {
+        if (document.activeElement !== editorBox) {
+          keyboardWrapper.classList.remove("open");
+          if (appCont) {
+            appCont.classList.remove("keyboard-open");
+          }
+        }
+      }, 150);
+    }
+  });
+
+  document.getElementById("use-os-keyboard-toggle").addEventListener("change", updateSettingsVisibility);
+
+  updateSettingsVisibility();
+  applyKeyboardSettings();
+
   const editor = document.getElementById("editor-box");
   editor.focus();
   editor.setSelectionRange(0, 0);
   previousCaretPosition = 0;
 });
+
+function updateSettingsVisibility() {
+  const useOS = document.getElementById("use-os-keyboard-toggle").checked;
+  const autoHideGroup = document.getElementById("auto-hide-k2-keyboard-group");
+  if (autoHideGroup) {
+    autoHideGroup.style.display = useOS ? "none" : "block";
+  }
+}
+
+function applyKeyboardSettings() {
+  const editor = document.getElementById("editor-box");
+  const keyboardWrapper = document.querySelector(".keyboard-panel-wrapper");
+  const appCont = document.querySelector(".app-container");
+  if (!editor || !keyboardWrapper) return;
+
+  if (settings.use_os_keyboard === 1) {
+    editor.setAttribute("inputmode", "text");
+    keyboardWrapper.style.display = "none";
+    keyboardWrapper.classList.remove("auto-hide", "open");
+    if (appCont) {
+      appCont.classList.remove("keyboard-open");
+    }
+  } else {
+    editor.setAttribute("inputmode", "none");
+    keyboardWrapper.style.display = "";
+    if (settings.auto_hide_k2_keyboard === 1) {
+      keyboardWrapper.classList.add("auto-hide");
+    } else {
+      keyboardWrapper.classList.remove("auto-hide", "open");
+      if (appCont) {
+        appCont.classList.remove("keyboard-open");
+      }
+    }
+  }
+}
 
 function populateVoiceDropdown() {
   const select = document.getElementById("local-tts-voice-select");
@@ -1240,6 +1321,8 @@ function setupUIBindings() {
     const minW = document.getElementById("min-target-width").value;
     const minH = document.getElementById("min-target-height").value;
     const basins = document.getElementById("basins-of-attraction-toggle").checked ? "1" : "0";
+    const useOS = document.getElementById("use-os-keyboard-toggle").checked ? "1" : "0";
+    const autoHide = document.getElementById("auto-hide-k2-keyboard-toggle").checked ? "1" : "0";
     const haUrl = document.getElementById("ha-url-input").value;
     const haToken = document.getElementById("ha-token-input").value;
     const bioText = document.getElementById("biography-text").value;
@@ -1259,6 +1342,8 @@ function setupUIBindings() {
     await setSetting("min_target_width", minW);
     await setSetting("min_target_height", minH);
     await setSetting("basins_of_attraction", basins);
+    await setSetting("use_os_keyboard", useOS);
+    await setSetting("auto_hide_k2_keyboard", autoHide);
     await setSetting("home_assistant_url", haUrl);
     await setSetting("home_assistant_token", haToken);
     await setSetting("biography_text", bioText);
@@ -1281,12 +1366,16 @@ function setupUIBindings() {
     settings.min_target_width = parseInt(minW, 10) || 50;
     settings.min_target_height = parseInt(minH, 10) || 40;
     settings.basins_of_attraction = basins === "1" ? 1 : 0;
+    settings.use_os_keyboard = useOS === "1" ? 1 : 0;
+    settings.auto_hide_k2_keyboard = autoHide === "1" ? 1 : 0;
     settings.home_assistant_url = haUrl;
     settings.home_assistant_token = haToken;
     settings.biography_text = bioText;
     settings.local_tts_voice = localVoice;
     settings.elevenlabs_voice = elevenlabsVoice;
     settings.hover_brightness = parseFloat(hoverBrightness) || 1.2;
+
+    applyKeyboardSettings();
 
     document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
     document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
@@ -1592,6 +1681,8 @@ function renderWordPredictions(words, prefix) {
       updatePredictionsAndKeyboard();
       editor.focus();
     };
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("touchstart", (e) => e.preventDefault());
     container.appendChild(btn);
   });
 }
@@ -1670,6 +1761,8 @@ function renderPhrasePredictions(phrases, textBefore, textAfter) {
       updatePredictionsAndKeyboard();
       editor.focus();
     };
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("touchstart", (e) => e.preventDefault());
     container.appendChild(btn);
   });
 }
@@ -1730,6 +1823,9 @@ function renderKeyboard(probabilities) {
       }
 
       // Key Tap dispatch handlers
+      keyBtn.addEventListener("mousedown", (e) => e.preventDefault());
+      keyBtn.addEventListener("touchstart", (e) => e.preventDefault());
+
       keyBtn.onclick = () => {
         const editor = document.getElementById("editor-box");
         editor.focus();
