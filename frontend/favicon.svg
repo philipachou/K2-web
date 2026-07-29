@@ -1,22 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <defs>
-    <!-- Cyan to Magenta gradient -->
-    <linearGradient id="logoGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3963f9"/>
-      <stop offset="35%" stop-color="#7b52f7"/>
-      <stop offset="70%" stop-color="#ce6be1"/>
-      <stop offset="100%" stop-color="#e22cf0"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Solid White Background -->
-  <rect width="512" height="512" fill="#ffffff"/>
-
-  <!-- Main K2 Monogram Body -->
-  <path d="M 253 79 L 259 84 L 332 179 L 332 181 L 198 332 L 187 345 L 187 348 L 276 457 L 288 474 L 211 474 L 141 389 L 139 389 L 107 421 L 107 474 L 44 475 L 41 473 L 41 268 L 145 144 L 175 178 L 253 80 Z" fill="url(#logoGrad)"/>
-  <path d="M 378 156 L 464 270 L 471 288 L 473 308 L 467 334 L 459 347 L 449 358 L 431 372 L 360 418 L 471 419 L 472 474 L 313 474 L 266 415 L 268 412 L 384 337 L 397 327 L 403 319 L 404 305 L 401 299 L 391 292 L 380 289 L 357 289 L 343 293 L 334 298 L 323 309 L 319 316 L 315 316 L 262 291 L 267 283 L 377 157 Z" fill="url(#logoGrad)"/>
-
-  <!-- Cutout Holes -->
-  <path d="M 108 336 L 108 219 L 145 175 L 163 196 L 164 201 L 144 243 L 141 250 L 142 252 L 153 240 L 252 114 L 240 163 L 238 177 L 240 178 L 268 158 L 256 186 L 109 336 Z" fill="#ffffff"/>
-  <path d="M 331 241 L 376 188 L 380 217 L 382 218 L 392 208 L 418 242 L 404 238 L 381 235 L 351 236 L 332 240 Z" fill="#ffffff"/>
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <!-- Cyan to Magenta gradient -->
+  <linearGradient y2="0%" x2="100%" y1="100%" x1="0%" id="logoGrad">
+   <stop stop-color="#3963f9" offset="0%"/>
+   <stop stop-color="#7b52f7" offset="35%"/>
+   <stop stop-color="#ce6be1" offset="70%"/>
+   <stop stop-color="#e22cf0" offset="100%"/>
+  </linearGradient>
+ </defs>
+ <!-- Solid White Background -->
+ <!-- Main K2 Monogram Body -->
+ <!-- Cutout Holes -->
+ <g>
+  <title>Layer 1</title>
+  <rect id="svg_1" fill="#ffffff" height="512" width="512"/>
+  <path id="svg_2" fill="url(#logoGrad)" d="m253,43l6,5l73,104l0,2l-145.89551,180.19402l89.89551,120.80598l12,19l-77,0l-72,-93l-32,35l0,58l-63,1l-3,-2l0,-224l104,-135l30,37l78,-107l0,-1z"/>
+  <path id="svg_3" fill="url(#logoGrad)" d="m378,127l86,124l7,20l2,22l-6,28l-8,14l-10,12l-18,16l-71,50l111,1l1,60l-159,0l-47,-64l2,-4l116,-82l13,-10l6,-9l1,-15l-3,-7l-10,-8l-11,-3l-23,0l-14,4l-9,6l-11,12l-4,8l-4,0l-53,-28l5,-8l110,-138l1,-1z"/>
+  <path id="svg_4" fill="#ffffff" d="m108,196l37,-48l-1.70131,45.98487l18.66776,-24.30945l1.95514,28.17669l90.16794,-120.43417l0.5372,54l19.19384,-25.29814l9.4329,13l-177.49216,220.13385l2.2387,-143.25365z"/>
+  <path id="svg_5" fill="#ffffff" d="m331,220l45,-58l4,32l2,1l10,-11l26,37l-14,-5l-23,-3l-30,1l-19,5l-1,1z"/>
+ </g>
 </svg>
