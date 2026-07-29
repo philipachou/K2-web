@@ -611,24 +611,33 @@ body {
   top: 0;
   left: 0;
   width: 100vw;
+  width: 100dvw;
   height: 100vh;
+  height: 100dvh;
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
   background: rgba(0, 0, 0, 0.85);
   display: none;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .modal-content {
   background: #0f172a;
   border: 1px solid var(--glass-border);
   border-radius: 16px;
-  width: 95%;
+  width: 100%;
   max-width: 580px;
-  padding: 16px 24px;
+  padding: 16px 20px 24px 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-  max-height: 90vh;
+  max-height: calc(var(--app-height, 100dvh) - 32px);
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .modal-content h2 {
@@ -713,8 +722,10 @@ body {
 
 .modal-footer {
   margin-top: 16px;
+  margin-bottom: 12px;
   display: flex;
   justify-content: flex-end;
+  padding-bottom: 8px;
 }
 
 /* --- Dwell Scroll indicator overlays --- */
@@ -735,6 +746,9 @@ body {
   .app-container {
     overflow: hidden;
     height: 100vh;
+    height: 100dvh;
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
   }
   .top-row {
     flex-direction: column;

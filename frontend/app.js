@@ -986,7 +986,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const actionControlsEl = document.querySelector(".actions-header-controls");
   if (editToolbarEl) layoutObserver.observe(editToolbarEl);
   if (actionControlsEl) layoutObserver.observe(actionControlsEl);
-  window.addEventListener("resize", updateToolbarLayouts);
+  window.addEventListener("resize", () => {
+    updateAppViewportHeight();
+    updateToolbarLayouts();
+  });
+  window.addEventListener("orientationchange", () => {
+    setTimeout(() => {
+      updateAppViewportHeight();
+      updateToolbarLayouts();
+    }, 100);
+  });
+  updateAppViewportHeight();
   setTimeout(updateToolbarLayouts, 50);
 
   updateSettingsVisibility();
@@ -997,6 +1007,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   editor.setSelectionRange(0, 0);
   previousCaretPosition = 0;
 });
+
+function updateAppViewportHeight() {
+  const vh = window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${vh}px`);
+}
 
 function updateToolbarLayouts() {
   const minW = settings.min_target_width || 50;
