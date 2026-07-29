@@ -40,13 +40,13 @@
             <div class="actions-header-controls">
               <!-- Mode selectors -->
               <div class="action-modes">
-                <button id="mode-delete" class="mode-btn">Delete</button>
-                <button id="mode-edit" class="mode-btn active">Edit</button>
-                <button id="mode-cloud-tts" class="mode-btn">@CloudTTS</button>
-                <button id="mode-local-tts" class="mode-btn">@LocalTTS</button>
-                <button id="mode-copy" class="mode-btn">Copy</button>
-                <button id="mode-cloud" class="mode-btn">@CloudAI</button>
-                <button id="mode-recolor" class="mode-btn">Recolor</button>
+                <button id="mode-delete" class="mode-btn" title="Delete Mode"><span class="btn-text-full">Delete</span><span class="btn-text-short">🗑️ Del</span></button>
+                <button id="mode-edit" class="mode-btn active" title="Edit Mode"><span class="btn-text-full">Edit</span><span class="btn-text-short">✏️ Edit</span></button>
+                <button id="mode-cloud-tts" class="mode-btn" title="@CloudTTS Mode"><span class="btn-text-full">@CloudTTS</span><span class="btn-text-short">☁️ TTS</span></button>
+                <button id="mode-local-tts" class="mode-btn" title="@LocalTTS Mode"><span class="btn-text-full">@LocalTTS</span><span class="btn-text-short">🔊 TTS</span></button>
+                <button id="mode-copy" class="mode-btn" title="Copy Mode"><span class="btn-text-full">Copy</span><span class="btn-text-short">📋 Copy</span></button>
+                <button id="mode-cloud" class="mode-btn" title="@CloudAI Mode"><span class="btn-text-full">@CloudAI</span><span class="btn-text-short">✨ AI</span></button>
+                <button id="mode-recolor" class="mode-btn" title="Recolor Mode"><span class="btn-text-full">Recolor</span><span class="btn-text-short">🎨 Color</span></button>
               </div>
               <!-- Recolor dropdown -->
               <select id="action-color-select" style="display: none;">
@@ -77,7 +77,7 @@
                 </div>
               </div>
 
-              <button id="btn-settings" class="btn btn-settings-icon">&#9881;</button>
+              <button id="btn-settings" class="btn btn-settings-icon" title="Preferences Settings"><span class="btn-text-full">⚙️ Settings</span><span class="btn-text-short">⚙️ Set</span></button>
             </div>
           </div>
           <div class="actions-list" id="actions-grid">
@@ -97,16 +97,16 @@
       <div class="panel-body editor-body">
         <!-- Top Edit Toolbar -->
         <div class="edit-toolbar">
-          <button id="btn-clear" class="btn btn-gray">Del All</button>
-          <button id="btn-del-word" class="btn btn-gray">Del Word</button>
-          <button id="btn-del-char" class="btn btn-gray">Del Char</button>
-          <button id="btn-dictate" class="btn btn-purple">Dictate</button>
-          <button id="btn-cloud-tts" class="btn btn-green">@CloudTTS</button>
-          <button id="btn-local-tts" class="btn btn-green">@LocalTTS</button>
-          <button id="btn-copy" class="btn btn-green">Copy</button>
-          <button id="btn-cloud" class="btn btn-blue">@CloudAI</button>
-          <button id="btn-save" class="btn btn-orange">Save</button>
-          <button id="btn-save-as" class="btn btn-orange">Save As...</button>
+          <button id="btn-clear" class="btn btn-gray" title="Delete All"><span class="btn-text-full">Del All</span><span class="btn-text-short">🗑️ All</span></button>
+          <button id="btn-del-word" class="btn btn-gray" title="Delete Word"><span class="btn-text-full">Del Word</span><span class="btn-text-short">⌫ Word</span></button>
+          <button id="btn-del-char" class="btn btn-gray" title="Delete Char"><span class="btn-text-full">Del Char</span><span class="btn-text-short">⌫ Char</span></button>
+          <button id="btn-dictate" class="btn btn-purple" title="Dictate"><span class="btn-text-full">Dictate</span><span class="btn-text-short">🎙️ Mic</span></button>
+          <button id="btn-cloud-tts" class="btn btn-green" title="@CloudTTS"><span class="btn-text-full">@CloudTTS</span><span class="btn-text-short">☁️ TTS</span></button>
+          <button id="btn-local-tts" class="btn btn-green" title="@LocalTTS"><span class="btn-text-full">@LocalTTS</span><span class="btn-text-short">🔊 TTS</span></button>
+          <button id="btn-copy" class="btn btn-green" title="Copy"><span class="btn-text-full">Copy</span><span class="btn-text-short">📋 Copy</span></button>
+          <button id="btn-cloud" class="btn btn-blue" title="@CloudAI"><span class="btn-text-full">@CloudAI</span><span class="btn-text-short">✨ AI</span></button>
+          <button id="btn-save" class="btn btn-orange" title="Save"><span class="btn-text-full">Save</span><span class="btn-text-short">💾 Save</span></button>
+          <button id="btn-save-as" class="btn btn-orange" title="Save As"><span class="btn-text-full">Save As...</span><span class="btn-text-short">💾 As...</span></button>
         </div>
 
         <!-- Editor Text Box (inputmode="none" to prevent virtual OS keyboard) -->

@@ -16,6 +16,7 @@
   --color-text-muted: #9ca3af;/* Grey */
   --hover-brightness: 1.2;
   --min-target-height: 40px;
+  --min-target-width: 50px;
 }
 
 * {
@@ -172,9 +173,12 @@ body {
 /* --- Actions Panel (Right) --- */
 .actions-header-controls {
   display: flex;
-  align-items: stretch;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   width: 100%;
+  position: relative;
+  z-index: 100;
 }
 
 .action-modes {
@@ -184,19 +188,22 @@ body {
 .mode-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--glass-border);
-  padding: 6px 4px;
+  padding: 4px 1px;
   border-radius: 6px;
   color: var(--color-text);
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
   font-weight: 600;
   transition: all 0.15s ease;
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 var(--min-target-width);
+  min-width: var(--min-target-width);
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.1;
 }
 
 #mode-delete { background: #475569; color: #fff; }
@@ -226,10 +233,14 @@ body {
 .custom-dropdown {
   position: relative;
   user-select: none;
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 var(--min-target-width);
+  min-width: var(--min-target-width);
+  height: var(--min-target-height) !important;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
 }
 
 .custom-dropdown-trigger {
@@ -238,18 +249,21 @@ body {
   border: 1px solid var(--glass-border);
   color: var(--color-text);
   border-radius: 6px;
-  padding: 4px 22px 4px 8px;
+  padding: 0 18px 0 4px;
   font-family: var(--font-family);
-  font-size: 0.75rem;
+  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
+  font-weight: 600;
   outline: none;
   cursor: pointer;
-  min-width: 0;
   width: 100%;
-  text-align: left;
+  height: 100% !important;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
   transition: all 0.15s ease;
   flex: 1;
   display: flex;
-  align-items: center;
+  box-sizing: border-box !important;
 }
 
 .custom-dropdown-trigger::after {
@@ -264,33 +278,38 @@ body {
 }
 
 .custom-dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 1000;
+  position: fixed !important;
+  z-index: 999999 !important;
   display: none;
   flex-direction: column;
   background: #1e293b;
   border: 1px solid var(--glass-border);
   border-radius: 6px;
-  margin-top: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  min-width: 100px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.95);
+  overflow-y: auto;
+  max-height: 240px;
+  min-width: 110px;
 }
 
 .custom-dropdown-menu.show {
-  display: flex;
+  display: flex !important;
 }
 
 .custom-dropdown-item {
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
   text-align: center;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
 }
 
 .actions-list {
@@ -351,9 +370,30 @@ body {
 
 .edit-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   width: 100%;
-  flex-wrap: nowrap;
+}
+
+.edit-toolbar .btn {
+  flex: 1 1 var(--min-target-width);
+  min-width: var(--min-target-width);
+  padding: 6px 2px;
+  font-size: clamp(0.65rem, 1.3vw, 0.85rem);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-text-full {
+  display: inline;
+}
+
+.btn-text-short {
+  display: none;
 }
 
 .btn {
@@ -386,16 +426,25 @@ body {
 .btn-primary { background: var(--color-primary); color: #000 !important; }
 .btn-warning { background: var(--color-warning); color: #000 !important; }
 
+/* Base button text display defaults */
+.btn-text-full {
+  display: inline;
+}
+
+.btn-text-short {
+  display: none;
+}
+
 .btn-settings-icon {
   background: #475569;
   color: #fff;
-  font-size: 1.1rem;
-  padding: 0;
+  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
+  padding: 4px 1px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 var(--min-target-width);
+  min-width: var(--min-target-width);
 }
 
 .textbox-wrapper {
@@ -693,11 +742,18 @@ body {
     min-height: 0;
     overflow: hidden;
   }
-  .chat-panel, .actions-panel {
+  .chat-panel {
     flex: 1;
     min-height: 0;
     height: auto;
     overflow: hidden;
+  }
+  .actions-panel {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow: visible !important;
+    z-index: 50;
   }
 }
 
@@ -817,14 +873,19 @@ body {
   100% { opacity: 0.6; }
 }
 
-/* --- Unified Minimum Button Sizing System --- */
+/* --- Unified Button Height Sizing System --- */
 .btn,
 .mode-btn,
 .action-card,
 .predict-btn,
-.key,
-.custom-dropdown-trigger,
-.custom-dropdown-item {
+.custom-dropdown-trigger {
+  height: var(--min-target-height) !important;
+  min-height: var(--min-target-height) !important;
+  max-height: var(--min-target-height) !important;
+  box-sizing: border-box !important;
+}
+
+.key {
   min-height: var(--min-target-height) !important;
 }
 

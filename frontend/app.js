@@ -918,6 +918,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.hover_brightness = parseFloat(hoverB) || 1.2;
   document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
   document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
+  document.documentElement.style.setProperty("--min-target-width", `${settings.min_target_width}px`);
 
   // Populate local TTS Voice dropdown
   populateVoiceDropdown();
@@ -979,6 +980,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
+  // Dynamic Mathematical Toolbar Row Splitting Algorithm
+  const layoutObserver = new ResizeObserver(() => updateToolbarLayouts());
+  const editToolbarEl = document.querySelector(".edit-toolbar");
+  const actionControlsEl = document.querySelector(".actions-header-controls");
+  if (editToolbarEl) layoutObserver.observe(editToolbarEl);
+  if (actionControlsEl) layoutObserver.observe(actionControlsEl);
+  window.addEventListener("resize", updateToolbarLayouts);
+  setTimeout(updateToolbarLayouts, 50);
+
   updateSettingsVisibility();
   applyKeyboardSettings();
 
@@ -987,6 +997,73 @@ document.addEventListener("DOMContentLoaded", async () => {
   editor.setSelectionRange(0, 0);
   previousCaretPosition = 0;
 });
+
+function updateToolbarLayouts() {
+  const minW = settings.min_target_width || 50;
+  const gap = 4;
+
+  // 1. Edit Toolbar (10 buttons)
+  const editToolbar = document.querySelector(".edit-toolbar");
+  if (editToolbar) {
+    const w = editToolbar.clientWidth;
+    const buttons = editToolbar.querySelectorAll(".btn");
+    const n = buttons.length;
+    if (w > 0 && n > 0) {
+      const kMax = Math.max(1, Math.floor((w + gap) / (minW + gap)));
+      const r = Math.max(1, Math.ceil(n / kMax));
+      const c = Math.ceil(n / r);
+      const flexPct = (100 / c).toFixed(2);
+
+      buttons.forEach(btn => {
+        btn.style.flex = `1 1 calc(${flexPct}% - ${gap}px)`;
+        btn.style.maxWidth = `calc(${flexPct}% - ${gap}px)`;
+        btn.style.minWidth = `${minW}px`;
+      });
+
+      const currentBtnW = (w - (c - 1) * gap) / c;
+      const useShort = currentBtnW < 75 || r > 1;
+      buttons.forEach(btn => {
+        const full = btn.querySelector(".btn-text-full");
+        const short = btn.querySelector(".btn-text-short");
+        if (full && short) {
+          full.style.display = useShort ? "none" : "inline";
+          short.style.display = useShort ? "inline" : "none";
+        }
+      });
+    }
+  }
+
+  // 2. Action Header Controls (9 items)
+  const actionControls = document.querySelector(".actions-header-controls");
+  if (actionControls) {
+    const w = actionControls.clientWidth;
+    const items = actionControls.querySelectorAll(".mode-btn, .btn-settings-icon, .custom-dropdown");
+    const n = items.length;
+    if (w > 0 && n > 0) {
+      const kMax = Math.max(1, Math.floor((w + gap) / (minW + gap)));
+      const r = Math.max(1, Math.ceil(n / kMax));
+      const c = Math.ceil(n / r);
+      const flexPct = (100 / c).toFixed(2);
+
+      items.forEach(item => {
+        item.style.flex = `1 1 calc(${flexPct}% - ${gap}px)`;
+        item.style.maxWidth = `calc(${flexPct}% - ${gap}px)`;
+        item.style.minWidth = `${minW}px`;
+      });
+
+      const currentItemW = (w - (c - 1) * gap) / c;
+      const useShort = currentItemW < 75 || r > 1;
+      items.forEach(item => {
+        const full = item.querySelector(".btn-text-full");
+        const short = item.querySelector(".btn-text-short");
+        if (full && short) {
+          full.style.display = useShort ? "none" : "inline";
+          short.style.display = useShort ? "inline" : "none";
+        }
+      });
+    }
+  }
+}
 
 function updateSettingsVisibility() {
   const useOS = document.getElementById("use-os-keyboard-toggle").checked;
@@ -1297,24 +1374,50 @@ function setupUIBindings() {
   const colorTrigger = document.getElementById("color-dropdown-trigger");
   const colorMenu = document.getElementById("color-dropdown-menu");
   if (colorTrigger && colorMenu) {
+    document.body.appendChild(colorMenu);
+
+    const positionMenu = () => {
+      const rect = colorTrigger.getBoundingClientRect();
+      colorMenu.style.position = "fixed";
+      colorMenu.style.top = `${rect.bottom + 4}px`;
+      colorMenu.style.left = `${rect.left}px`;
+      colorMenu.style.width = `${Math.max(rect.width, 110)}px`;
+    };
+
     colorTrigger.addEventListener("click", (e) => {
       e.stopPropagation();
-      colorMenu.classList.toggle("show");
+      const willShow = !colorMenu.classList.contains("show");
+      if (willShow) {
+        positionMenu();
+        colorMenu.classList.add("show");
+      } else {
+        colorMenu.classList.remove("show");
+      }
     });
 
-    document.addEventListener("click", () => {
-      colorMenu.classList.remove("show");
+    document.addEventListener("click", (e) => {
+      if (!colorMenu.contains(e.target) && !colorTrigger.contains(e.target)) {
+        colorMenu.classList.remove("show");
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      if (colorMenu.classList.contains("show")) {
+        positionMenu();
+      }
     });
 
     const items = colorMenu.querySelectorAll(".custom-dropdown-item");
     items.forEach(item => {
-      item.addEventListener("click", () => {
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
         const val = item.getAttribute("data-value");
         const select = document.getElementById("action-color-select");
         if (select) {
           select.value = val;
           select.dispatchEvent(new Event("change"));
         }
+        colorMenu.classList.remove("show");
       });
     });
   }
@@ -1389,9 +1492,11 @@ function setupUIBindings() {
 
     document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
     document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
+    document.documentElement.style.setProperty("--min-target-width", `${settings.min_target_width}px`);
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
 
     updatePredictionsAndKeyboard();
+    updateToolbarLayouts();
     document.getElementById("settings-modal").style.display = "none";
   });
 
