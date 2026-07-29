@@ -757,23 +757,41 @@ body {
     overflow: hidden;
   }
   .chat-panel {
-    flex: 1;
-    min-height: 0;
-    height: auto;
+    flex: 0 0 auto;
+    height: 92px;
+    max-height: 92px;
     overflow: hidden;
   }
   .actions-panel {
     flex: 1;
-    min-height: 0;
+    min-height: 190px;
     height: auto;
     overflow: visible !important;
     z-index: 50;
+  }
+  .editor-panel {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  #editor-box {
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    font-size: 26px !important;
+    line-height: 1.25 !important;
+    padding: 4px 8px !important;
   }
 }
 
 /* Allow top-row to collapse flex height when all contained panels are collapsed */
 .top-row:not(:has(.labeled-panel:not(.collapsed))) {
   flex: 0 0 auto !important;
+}
+
+.top-row:not(:has(.labeled-panel:not(.collapsed))) ~ .editor-panel #editor-box {
+  height: 100% !important;
+  max-height: none !important;
 }
 
 .editor-panel {
