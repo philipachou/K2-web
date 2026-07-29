@@ -969,6 +969,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("use-os-keyboard-toggle").addEventListener("change", updateSettingsVisibility);
 
+  // Accordion Panel Collapsing Bindings
+  document.querySelectorAll(".panel-label").forEach(label => {
+    label.addEventListener("click", () => {
+      const panel = label.closest(".labeled-panel");
+      if (panel) {
+        panel.classList.toggle("collapsed");
+      }
+    });
+  });
+
   updateSettingsVisibility();
   applyKeyboardSettings();
 

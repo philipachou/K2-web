@@ -681,21 +681,114 @@ body {
   transition: opacity 0.2s ease;
 }
 
-/* --- Portrait/Mobile/Tabbed Layout Rules (Later mobile layouts) --- */
+/* --- Portrait/Mobile Layout Rules (Strict 100vh Bounded Scaling) --- */
 @media (max-width: 768px) {
-  /* Simple vertical stacked panels for mobile testing */
   .app-container {
-    overflow-y: auto;
-    height: auto;
+    overflow: hidden;
+    height: 100vh;
   }
   .top-row {
     flex-direction: column;
-    height: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
   .chat-panel, .actions-panel {
-    height: 300px;
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
   }
 }
+
+/* Allow top-row to collapse flex height when all contained panels are collapsed */
+.top-row:not(:has(.labeled-panel:not(.collapsed))) {
+  flex: 0 0 auto !important;
+}
+
+.editor-panel {
+  flex: 1;
+  min-height: 140px;
+}
+
+.editor-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.textbox-wrapper {
+  flex: 1;
+  display: flex;
+  min-height: 60px;
+}
+
+#editor-box {
+  flex: 1;
+  height: 100%;
+  min-height: 60px;
+}
+
+/* --- Interactive Collapsible Panel Accordion System --- */
+.panel-label {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.panel-label:hover {
+  background: rgba(30, 41, 59, 0.85) !important;
+  color: var(--color-teal-light) !important;
+}
+
+/* Collapsed Panel State */
+.labeled-panel.collapsed {
+  flex: 0 0 auto !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  overflow: hidden !important;
+  border-radius: 8px !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.labeled-panel.collapsed .panel-body,
+.labeled-panel.collapsed .keyboard-container {
+  display: none !important;
+}
+
+.labeled-panel.collapsed .panel-label {
+  writing-mode: horizontal-tb !important;
+  transform: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 8px !important;
+  border-right: 1px solid var(--glass-border) !important;
+  justify-content: flex-start !important;
+  padding: 0 14px !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.1em !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  color: var(--color-teal-light) !important;
+}
+
+/* Chevron indicator for panel collapse state */
+.panel-label::after {
+  content: " ▼";
+  font-size: 0.6rem;
+  margin-left: 6px;
+  opacity: 0.7;
+}
+
+.labeled-panel.collapsed .panel-label::after {
+  content: " ▶";
+  font-size: 0.65rem;
+  margin-left: 8px;
+  opacity: 0.9;
+}
+
 
 /* --- Prediction Button Prefix Styling --- */
 .predict-btn .prefix {
