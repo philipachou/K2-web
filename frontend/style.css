@@ -787,11 +787,56 @@ body {
 /* Allow top-row to collapse flex height when all contained panels are collapsed */
 .top-row:not(:has(.labeled-panel:not(.collapsed))) {
   flex: 0 0 auto !important;
+  min-height: 0 !important;
 }
 
 .top-row:not(:has(.labeled-panel:not(.collapsed))) ~ .editor-panel #editor-box {
   height: 100% !important;
   max-height: none !important;
+}
+
+/* Dynamic Accordion Space Release: Uncollapsed panels expand to absorb released space */
+@media (max-width: 768px) {
+  /* When Actions panel is collapsed, collapse top-row height so Editor panel moves up */
+  .top-row:has(.actions-panel.collapsed) {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .top-row:has(.actions-panel.collapsed) ~ .editor-panel:not(.collapsed) {
+    flex: 1 !important;
+    height: auto !important;
+  }
+
+  .top-row:has(.actions-panel.collapsed) ~ .editor-panel:not(.collapsed) #editor-box {
+    height: 100% !important;
+    min-height: 100px !important;
+    max-height: none !important;
+  }
+
+  /* When Chat panel is collapsed, Actions panel expands to fill top-row */
+  .top-row:has(.chat-panel.collapsed) .actions-panel:not(.collapsed) {
+    flex: 1 !important;
+    height: auto !important;
+    min-height: 220px !important;
+  }
+
+  .app-container:has(.actions-panel.collapsed):has(.chat-panel.collapsed) .editor-panel:not(.collapsed) {
+    flex: 1 !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .top-row:has(.actions-panel.collapsed) .chat-panel:not(.collapsed) {
+    flex: 1 1 auto !important;
+    width: auto !important;
+  }
+
+  .top-row:has(.chat-panel.collapsed) .actions-panel:not(.collapsed) {
+    flex: 1 1 auto !important;
+    width: auto !important;
+  }
 }
 
 .editor-panel {
