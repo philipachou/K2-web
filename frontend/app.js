@@ -1374,7 +1374,7 @@ function setupUIBindings() {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".action-modes .mode-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      activeMode = btn.textContent;
+      activeMode = btn.getAttribute("data-mode") || btn.querySelector(".btn-text-full")?.textContent.trim() || "Edit";
     });
   });
 
