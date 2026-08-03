@@ -1874,6 +1874,53 @@ async function executeFetchWords(textBefore, prefix) {
   }
 }
 
+function attachPredictionButtonTouchHandler(btn, onTapAction) {
+  let startX = 0;
+  let startY = 0;
+  let isDrag = false;
+  let touchActive = false;
+
+  btn.addEventListener("mousedown", (e) => {
+    e.preventDefault(); // Prevent editor box blur on desktop
+  });
+
+  btn.addEventListener("touchstart", (e) => {
+    if (e.touches && e.touches.length > 0) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isDrag = false;
+      touchActive = true;
+    }
+  }, { passive: true });
+
+  btn.addEventListener("touchmove", (e) => {
+    if (touchActive && e.touches && e.touches.length > 0) {
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      if (dx > 6 || dy > 6) {
+        isDrag = true; // User is swiping/dragging the row
+      }
+    }
+  }, { passive: true });
+
+  btn.addEventListener("touchend", (e) => {
+    if (touchActive) {
+      touchActive = false;
+      if (!isDrag) {
+        // Stationary tap! Trigger prediction insertion
+        e.preventDefault();
+        onTapAction();
+      }
+    }
+  });
+
+  btn.addEventListener("click", (e) => {
+    if (!isDrag) {
+      onTapAction();
+    }
+  });
+}
+
 function renderWordPredictions(words, prefix) {
   const container = document.getElementById("word-predictions");
   container.innerHTML = "";
@@ -1889,7 +1936,7 @@ function renderWordPredictions(words, prefix) {
       btn.textContent = word;
     }
 
-    btn.onclick = () => {
+    attachPredictionButtonTouchHandler(btn, () => {
       const editor = document.getElementById("editor-box");
       const start = editor.selectionStart;
       const currentText = editor.value;
@@ -1906,9 +1953,8 @@ function renderWordPredictions(words, prefix) {
 
       updatePredictionsAndKeyboard();
       editor.focus();
-    };
-    btn.addEventListener("mousedown", (e) => e.preventDefault());
-    btn.addEventListener("touchstart", (e) => e.preventDefault());
+    });
+
     container.appendChild(btn);
   });
 }
@@ -1975,7 +2021,7 @@ function renderPhrasePredictions(phrases, textBefore, textAfter) {
     btn.className = "predict-btn";
     btn.textContent = phrase;
 
-    btn.onclick = () => {
+    attachPredictionButtonTouchHandler(btn, () => {
       const editor = document.getElementById("editor-box");
 
       // Replace whole text preceding caret with completion
@@ -1986,9 +2032,8 @@ function renderPhrasePredictions(phrases, textBefore, textAfter) {
 
       updatePredictionsAndKeyboard();
       editor.focus();
-    };
-    btn.addEventListener("mousedown", (e) => e.preventDefault());
-    btn.addEventListener("touchstart", (e) => e.preventDefault());
+    });
+
     container.appendChild(btn);
   });
 }

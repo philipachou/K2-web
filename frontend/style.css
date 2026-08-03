@@ -557,6 +557,9 @@ body {
   -ms-overflow-style: none;
   width: 100%;
   box-sizing: border-box;
+  touch-action: pan-x !important;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .prediction-row::-webkit-scrollbar {
@@ -574,6 +577,7 @@ body {
   padding-right: 8px;
   text-align: right;
   line-height: 30px;
+  touch-action: pan-x !important;
 }
 
 .prediction-list-wrapper {
@@ -582,6 +586,7 @@ body {
   overflow-x: visible;
   flex: 0 0 auto;
   align-items: center;
+  touch-action: pan-x !important;
 }
 
 .predict-btn {
@@ -596,6 +601,9 @@ body {
   font-weight: 600;
   transition: all 0.15s ease;
   min-height: var(--min-target-height);
+  touch-action: pan-x !important;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .predict-btn:hover {
   border-color: var(--color-success);
