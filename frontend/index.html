@@ -19,102 +19,103 @@
 <body>
   <div class="app-container">
     
-    <!-- Row 0: Chat Log (Left) & Actions Panel (Right) -->
-    <div class="top-row">
-      <!-- Left Column: Chat Conversation Panel -->
-      <section class="panel chat-panel labeled-panel" id="chat-panel">
-        <div class="panel-label">Chat Log</div>
-        <div class="panel-body">
-          <div class="chat-log" id="chat-log-scroll">
-            <!-- Messages are rendered dynamically by app.js -->
-            <div class="system-message">System initialized. Ready.</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Right Column: Saved Actions Macro Grid -->
-      <section class="panel actions-panel labeled-panel">
-        <div class="panel-label">Actions</div>
-        <div class="panel-body">
-          <div class="panel-header">
-            <div class="actions-header-controls">
-              <!-- Mode selectors -->
-              <div class="action-modes">
-                <button id="mode-delete" class="mode-btn" data-mode="Delete" title="Delete Mode"><span class="btn-text-full">Delete</span><span class="btn-text-short">🗑️ Del</span></button>
-                <button id="mode-edit" class="mode-btn active" data-mode="Edit" title="Edit Mode"><span class="btn-text-full">Edit</span><span class="btn-text-short">✏️ Edit</span></button>
-                <button id="mode-cloud-tts" class="mode-btn" data-mode="@CloudTTS" title="@CloudTTS Mode"><span class="btn-text-full">@CloudTTS</span><span class="btn-text-short">☁️ TTS</span></button>
-                <button id="mode-local-tts" class="mode-btn" data-mode="@LocalTTS" title="@LocalTTS Mode"><span class="btn-text-full">@LocalTTS</span><span class="btn-text-short">🔊 TTS</span></button>
-                <button id="mode-copy" class="mode-btn" data-mode="Copy" title="Copy Mode"><span class="btn-text-full">Copy</span><span class="btn-text-short">📋 Copy</span></button>
-                <button id="mode-cloud" class="mode-btn" data-mode="@CloudAI" title="@CloudAI Mode"><span class="btn-text-full">@CloudAI</span><span class="btn-text-short">✨ AI</span></button>
-                <button id="mode-recolor" class="mode-btn" data-mode="Recolor" title="Recolor Mode"><span class="btn-text-full">Recolor</span><span class="btn-text-short">🎨 Color</span></button>
-              </div>
-              <!-- Recolor dropdown -->
-              <select id="action-color-select" style="display: none;">
-                <option value="Blue">Blue</option>
-                <option value="Green">Green</option>
-                <option value="Red">Red</option>
-                <option value="Orange">Orange</option>
-                <option value="Purple">Purple</option>
-                <option value="Yellow">Yellow</option>
-                <option value="Teal">Teal</option>
-                <option value="Pink">Pink</option>
-                <option value="Gray">Gray</option>
-              </select>
-
-              <!-- Custom Recolor dropdown -->
-              <div class="custom-dropdown" id="action-color-dropdown">
-                <div class="custom-dropdown-trigger" id="color-dropdown-trigger">Blue</div>
-                <div class="custom-dropdown-menu" id="color-dropdown-menu">
-                  <div class="custom-dropdown-item" data-value="Blue" style="background-color: #1f538d; color: white;">Blue</div>
-                  <div class="custom-dropdown-item" data-value="Green" style="background-color: #2ecc71; color: black;">Green</div>
-                  <div class="custom-dropdown-item" data-value="Red" style="background-color: #e74c3c; color: white;">Red</div>
-                  <div class="custom-dropdown-item" data-value="Orange" style="background-color: #e67e22; color: white;">Orange</div>
-                  <div class="custom-dropdown-item" data-value="Purple" style="background-color: #9b59b6; color: white;">Purple</div>
-                  <div class="custom-dropdown-item" data-value="Yellow" style="background-color: #f1c40f; color: black;">Yellow</div>
-                  <div class="custom-dropdown-item" data-value="Teal" style="background-color: #1abc9c; color: black;">Teal</div>
-                  <div class="custom-dropdown-item" data-value="Pink" style="background-color: #e84393; color: white;">Pink</div>
-                  <div class="custom-dropdown-item" data-value="Gray" style="background-color: #475569; color: white;">Gray</div>
-                </div>
-              </div>
-
-              <button id="btn-settings" class="btn btn-settings-icon" title="Preferences Settings"><span class="btn-text-full">⚙️ Settings</span><span class="btn-text-short">⚙️ Set</span></button>
+    <div class="upper-workspace">
+      <!-- Top Row: Chat Panel (Left) & Actions Panel (Right) -->
+      <div class="top-row">
+        <!-- Left Column: Chat Log -->
+        <section class="panel chat-panel labeled-panel">
+          <div class="panel-label">Chat Log</div>
+          <div class="panel-body">
+            <div class="chat-log" id="chat-log-scroll">
+              <div class="system-message">System initialized. Ready.</div>
             </div>
           </div>
-          <div class="actions-list" id="actions-grid">
-            <!-- Macros are populated dynamically by app.js -->
-          </div>
-          <!-- Hover Preview Bar -->
-          <div class="actions-preview-bar" id="actions-preview">
-            Hover over an action to preview...
-          </div>
-        </div>
-      </section>
-    </div>
- 
-    <!-- Row 1: Editor Toolbar & Editor Text Box -->
-    <main class="panel editor-panel labeled-panel">
-      <div class="panel-label">Editor</div>
-      <div class="panel-body editor-body">
-        <!-- Top Edit Toolbar -->
-        <div class="edit-toolbar">
-          <button id="btn-clear" class="btn btn-gray" title="Delete All"><span class="btn-text-full">Del All</span><span class="btn-text-short">🗑️ All</span></button>
-          <button id="btn-del-word" class="btn btn-gray" title="Delete Word"><span class="btn-text-full">Del Word</span><span class="btn-text-short">⌫ Word</span></button>
-          <button id="btn-del-char" class="btn btn-gray" title="Delete Char"><span class="btn-text-full">Del Char</span><span class="btn-text-short">⌫ Char</span></button>
-          <button id="btn-dictate" class="btn btn-purple" title="Dictate"><span class="btn-text-full">Dictate</span><span class="btn-text-short">🎙️ Mic</span></button>
-          <button id="btn-cloud-tts" class="btn btn-green" title="@CloudTTS"><span class="btn-text-full">@CloudTTS</span><span class="btn-text-short">☁️ TTS</span></button>
-          <button id="btn-local-tts" class="btn btn-green" title="@LocalTTS"><span class="btn-text-full">@LocalTTS</span><span class="btn-text-short">🔊 TTS</span></button>
-          <button id="btn-copy" class="btn btn-green" title="Copy"><span class="btn-text-full">Copy</span><span class="btn-text-short">📋 Copy</span></button>
-          <button id="btn-cloud" class="btn btn-blue" title="@CloudAI"><span class="btn-text-full">@CloudAI</span><span class="btn-text-short">✨ AI</span></button>
-          <button id="btn-save" class="btn btn-orange" title="Save"><span class="btn-text-full">Save</span><span class="btn-text-short">💾 Save</span></button>
-          <button id="btn-save-as" class="btn btn-orange" title="Save As"><span class="btn-text-full">Save As...</span><span class="btn-text-short">💾 As...</span></button>
-        </div>
+        </section>
 
-        <!-- Editor Text Box (inputmode="none" to prevent virtual OS keyboard) -->
-        <div class="textbox-wrapper">
-          <textarea id="editor-box" placeholder="Type here..." inputmode="none"></textarea>
-        </div>
+        <!-- Right Column: Saved Actions Macro Grid -->
+        <section class="panel actions-panel labeled-panel">
+          <div class="panel-label">Actions</div>
+          <div class="panel-body">
+            <div class="panel-header">
+              <div class="actions-header-controls">
+                <!-- Mode selectors -->
+                <div class="action-modes">
+                  <button id="mode-delete" class="mode-btn" data-mode="Delete" title="Delete Mode"><span class="btn-text-full">Delete</span><span class="btn-text-short">🗑️ Del</span></button>
+                  <button id="mode-edit" class="mode-btn active" data-mode="Edit" title="Edit Mode"><span class="btn-text-full">Edit</span><span class="btn-text-short">✏️ Edit</span></button>
+                  <button id="mode-cloud-tts" class="mode-btn" data-mode="@CloudTTS" title="@CloudTTS Mode"><span class="btn-text-full">@CloudTTS</span><span class="btn-text-short">☁️ TTS</span></button>
+                  <button id="mode-local-tts" class="mode-btn" data-mode="@LocalTTS" title="@LocalTTS Mode"><span class="btn-text-full">@LocalTTS</span><span class="btn-text-short">🔊 TTS</span></button>
+                  <button id="mode-copy" class="mode-btn" data-mode="Copy" title="Copy Mode"><span class="btn-text-full">Copy</span><span class="btn-text-short">📋 Copy</span></button>
+                  <button id="mode-cloud" class="mode-btn" data-mode="@CloudAI" title="@CloudAI Mode"><span class="btn-text-full">@CloudAI</span><span class="btn-text-short">✨ AI</span></button>
+                  <button id="mode-recolor" class="mode-btn" data-mode="Recolor" title="Recolor Mode"><span class="btn-text-full">Recolor</span><span class="btn-text-short">🎨 Color</span></button>
+                </div>
+                <!-- Recolor dropdown -->
+                <select id="action-color-select" style="display: none;">
+                  <option value="Blue">Blue</option>
+                  <option value="Green">Green</option>
+                  <option value="Red">Red</option>
+                  <option value="Orange">Orange</option>
+                  <option value="Purple">Purple</option>
+                  <option value="Yellow">Yellow</option>
+                  <option value="Teal">Teal</option>
+                  <option value="Pink">Pink</option>
+                  <option value="Gray">Gray</option>
+                </select>
+
+                <!-- Custom Recolor dropdown -->
+                <div class="custom-dropdown" id="action-color-dropdown">
+                  <div class="custom-dropdown-trigger" id="color-dropdown-trigger">Blue</div>
+                  <div class="custom-dropdown-menu" id="color-dropdown-menu">
+                    <div class="custom-dropdown-item" data-value="Blue" style="background-color: #1f538d; color: white;">Blue</div>
+                    <div class="custom-dropdown-item" data-value="Green" style="background-color: #2ecc71; color: black;">Green</div>
+                    <div class="custom-dropdown-item" data-value="Red" style="background-color: #e74c3c; color: white;">Red</div>
+                    <div class="custom-dropdown-item" data-value="Orange" style="background-color: #e67e22; color: white;">Orange</div>
+                    <div class="custom-dropdown-item" data-value="Purple" style="background-color: #9b59b6; color: white;">Purple</div>
+                    <div class="custom-dropdown-item" data-value="Yellow" style="background-color: #f1c40f; color: black;">Yellow</div>
+                    <div class="custom-dropdown-item" data-value="Teal" style="background-color: #1abc9c; color: black;">Teal</div>
+                    <div class="custom-dropdown-item" data-value="Pink" style="background-color: #e84393; color: white;">Pink</div>
+                    <div class="custom-dropdown-item" data-value="Gray" style="background-color: #475569; color: white;">Gray</div>
+                  </div>
+                </div>
+
+                <button id="btn-settings" class="btn btn-settings-icon" title="Preferences Settings"><span class="btn-text-full">⚙️ Settings</span><span class="btn-text-short">⚙️ Set</span></button>
+              </div>
+            </div>
+            <div class="actions-list" id="actions-grid">
+              <!-- Macros are populated dynamically by app.js -->
+            </div>
+            <!-- Hover Preview Bar -->
+            <div class="actions-preview-bar" id="actions-preview">
+              Hover over an action to preview...
+            </div>
+          </div>
+        </section>
       </div>
-    </main>
+
+      <!-- Row 1: Editor Toolbar & Editor Text Box -->
+      <main class="panel editor-panel labeled-panel">
+        <div class="panel-label">Editor</div>
+        <div class="panel-body editor-body">
+          <!-- Top Edit Toolbar -->
+          <div class="edit-toolbar">
+            <button id="btn-clear" class="btn btn-gray" title="Delete All"><span class="btn-text-full">Del All</span><span class="btn-text-short">🗑️ All</span></button>
+            <button id="btn-del-word" class="btn btn-gray" title="Delete Word"><span class="btn-text-full">Del Word</span><span class="btn-text-short">⌫ Word</span></button>
+            <button id="btn-del-char" class="btn btn-gray" title="Delete Char"><span class="btn-text-full">Del Char</span><span class="btn-text-short">⌫ Char</span></button>
+            <button id="btn-dictate" class="btn btn-purple" title="Dictate"><span class="btn-text-full">Dictate</span><span class="btn-text-short">🎙️ Mic</span></button>
+            <button id="btn-cloud-tts" class="btn btn-green" title="@CloudTTS"><span class="btn-text-full">@CloudTTS</span><span class="btn-text-short">☁️ TTS</span></button>
+            <button id="btn-local-tts" class="btn btn-green" title="@LocalTTS"><span class="btn-text-full">@LocalTTS</span><span class="btn-text-short">🔊 TTS</span></button>
+            <button id="btn-copy" class="btn btn-green" title="Copy"><span class="btn-text-full">Copy</span><span class="btn-text-short">📋 Copy</span></button>
+            <button id="btn-cloud" class="btn btn-blue" title="@CloudAI"><span class="btn-text-full">@CloudAI</span><span class="btn-text-short">✨ AI</span></button>
+            <button id="btn-save" class="btn btn-orange" title="Save"><span class="btn-text-full">Save</span><span class="btn-text-short">💾 Save</span></button>
+            <button id="btn-save-as" class="btn btn-orange" title="Save As"><span class="btn-text-full">Save As...</span><span class="btn-text-short">💾 As...</span></button>
+          </div>
+
+          <!-- Editor Text Box (inputmode="none" to prevent virtual OS keyboard) -->
+          <div class="textbox-wrapper">
+            <textarea id="editor-box" placeholder="Type here..." inputmode="none"></textarea>
+          </div>
+        </div>
+      </main>
+    </div>
 
     <!-- Row 2: Predictions Bar (WORDS on top, PHRASES below) -->
     <div class="predictions-panel labeled-panel">

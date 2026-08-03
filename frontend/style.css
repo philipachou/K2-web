@@ -39,11 +39,33 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
   width: 100vw;
-  padding: 10px;
+  padding: 8px 8px 12px 8px;
   gap: 8px;
   overflow: hidden;
+  box-sizing: border-box;
   transition: padding-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.upper-workspace {
+  flex: 1 1 0px !important;
+  min-height: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto !important;
+}
+
+/* Fixed Height Panes (Anchored at bottom, never cut off) */
+.predictions-panel {
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  height: calc(2 * var(--min-target-height) + 14px) !important;
+  min-height: calc(2 * var(--min-target-height) + 14px) !important;
+  box-sizing: border-box !important;
 }
 
 /* Top Row: Chat Panel (Left) & Actions Panel (Right) */
@@ -553,32 +575,43 @@ body {
 
 /* --- Row 3: Virtual Keyboard --- */
 .keyboard-panel-wrapper {
-  flex-shrink: 0;
-  height: 220px;
-  min-height: 180px;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  height: calc(5 * var(--min-target-height) + 16px) !important;
+  min-height: calc(5 * var(--min-target-height) + 16px) !important;
+  box-sizing: border-box !important;
 }
 
 .keyboard-container {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  height: 100%;
+  gap: 2px !important;
+  height: 100% !important;
   background: rgba(15, 23, 42, 0.5);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  padding: 8px;
+  padding: 4px !important;
   flex: 1;
+  box-sizing: border-box !important;
+  overflow: hidden;
 }
 
 .keyboard-row {
   display: flex;
-  gap: 4px;
-  flex: 1;
+  gap: 2px !important;
+  height: var(--min-target-height) !important;
+  min-height: var(--min-target-height) !important;
+  max-height: var(--min-target-height) !important;
+  flex: 0 0 var(--min-target-height) !important;
   width: 100%;
+  box-sizing: border-box !important;
 }
 
 .key {
   flex: 1;
+  height: var(--min-target-height) !important;
+  min-height: var(--min-target-height) !important;
+  max-height: var(--min-target-height) !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -591,6 +624,10 @@ body {
   transition: all 0.1s ease;
   color: var(--color-text);
   text-align: center;
+  line-height: 1 !important;
+  padding: 0 2px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .key.special-key {
@@ -741,93 +778,62 @@ body {
   transition: opacity 0.2s ease;
 }
 
-/* --- Portrait/Mobile Layout Rules (Strict 100vh Bounded Scaling) --- */
-@media (max-width: 768px) {
-  .app-container {
-    overflow: hidden;
-    height: 100vh;
-    height: 100dvh;
-    height: var(--app-height, 100dvh);
-    max-height: var(--app-height, 100dvh);
-  }
-  .top-row {
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .chat-panel {
-    flex: 0 0 auto;
-    height: 92px;
-    max-height: 92px;
-    overflow: hidden;
-  }
-  .actions-panel {
-    flex: 1;
-    min-height: 190px;
-    height: auto;
-    overflow: visible !important;
-    z-index: 50;
-  }
-  .editor-panel {
-    flex: 0 0 auto !important;
-    height: auto !important;
-    min-height: 0 !important;
-  }
-  #editor-box {
-    height: 72px !important;
-    min-height: 72px !important;
-    max-height: 72px !important;
-    font-size: 26px !important;
-    line-height: 1.25 !important;
-    padding: 4px 8px !important;
-  }
-}
+/* --- Dynamic Layout Rules --- */
 
-/* Allow top-row to collapse flex height when all contained panels are collapsed */
-.top-row:not(:has(.labeled-panel:not(.collapsed))) {
+/* Editor Panel & 1-to-3 Lines Auto-Expanding Text Box */
+.editor-panel:not(.collapsed) {
   flex: 0 0 auto !important;
+  height: auto !important;
   min-height: 0 !important;
 }
 
-.top-row:not(:has(.labeled-panel:not(.collapsed))) ~ .editor-panel #editor-box {
-  height: 100% !important;
-  max-height: none !important;
+#editor-box {
+  font-size: 24px;
+  line-height: 1.3;
+  padding: 6px 10px;
+  min-height: 44px;
+  max-height: 106px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  transition: height 0.15s ease;
 }
 
-/* Dynamic Accordion Space Release: Uncollapsed panels expand to absorb released space */
-@media (max-width: 768px) {
-  /* When Actions panel is collapsed, collapse top-row height so Editor panel moves up */
-  .top-row:has(.actions-panel.collapsed) {
-    flex: 0 0 auto !important;
-    height: auto !important;
-    min-height: 0 !important;
+/* Wide Mode Layout (Side-by-Side Arrangement > 768px) */
+@media (min-width: 769px) {
+  .top-row {
+    flex-direction: row;
+    flex: 1;
+    min-height: 150px;
+    gap: 8px;
+    overflow-y: auto;
   }
 
-  .top-row:has(.actions-panel.collapsed) ~ .editor-panel:not(.collapsed) {
-    flex: 1 !important;
-    height: auto !important;
+  .chat-panel:not(.collapsed),
+  .actions-panel:not(.collapsed) {
+    flex: 1 1 50%;
+    min-width: 0;
   }
 
-  .top-row:has(.actions-panel.collapsed) ~ .editor-panel:not(.collapsed) #editor-box {
+  /* Desktop Minimization: Label remains vertical text (34px wide column), giving the other panel horizontal space to expand */
+  .top-row .labeled-panel.collapsed {
+    flex: 0 0 34px !important;
+    width: 34px !important;
     height: 100% !important;
-    min-height: 100px !important;
+    min-height: 0 !important;
     max-height: none !important;
   }
 
-  /* When Chat panel is collapsed, Actions panel expands to fill top-row */
-  .top-row:has(.chat-panel.collapsed) .actions-panel:not(.collapsed) {
-    flex: 1 !important;
-    height: auto !important;
-    min-height: 220px !important;
+  .top-row .labeled-panel.collapsed .panel-label {
+    writing-mode: vertical-rl !important;
+    transform: rotate(180deg) !important;
+    width: 100% !important;
+    height: 100% !important;
+    justify-content: center !important;
+    padding: 14px 0 !important;
+    border-right: none !important;
+    border-radius: 8px !important;
   }
 
-  .app-container:has(.actions-panel.collapsed):has(.chat-panel.collapsed) .editor-panel:not(.collapsed) {
-    flex: 1 !important;
-  }
-}
-
-@media (min-width: 769px) {
   .top-row:has(.actions-panel.collapsed) .chat-panel:not(.collapsed) {
     flex: 1 1 auto !important;
     width: auto !important;
@@ -836,6 +842,51 @@ body {
   .top-row:has(.chat-panel.collapsed) .actions-panel:not(.collapsed) {
     flex: 1 1 auto !important;
     width: auto !important;
+  }
+}
+
+/* Narrow Mode Layout (Stacked Arrangement <= 768px) */
+@media (max-width: 768px) {
+  .app-container {
+    overflow-y: auto;
+    height: 100vh;
+    height: 100dvh;
+    height: var(--app-height, 100dvh);
+  }
+
+  .top-row {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    gap: 8px;
+  }
+
+  /* Equal 50/50 space sharing with strict minimum line bounds */
+  .chat-panel:not(.collapsed) {
+    flex: 1 1 50%;
+    min-height: 110px; /* Guarantees at least 3 lines of chat text */
+    overflow-y: auto;
+  }
+
+  .actions-panel:not(.collapsed) {
+    flex: 1 1 50%;
+    min-height: 150px; /* Guarantees at least 3 lines/rows of action buttons */
+    overflow-y: auto;
+  }
+
+  .top-row:has(.actions-panel.collapsed) .chat-panel:not(.collapsed) {
+    flex: 1 !important;
+    min-height: 110px !important;
+  }
+
+  .top-row:has(.chat-panel.collapsed) .actions-panel:not(.collapsed) {
+    flex: 1 !important;
+    min-height: 150px !important;
+  }
+
+  .app-container:has(.actions-panel.collapsed):has(.chat-panel.collapsed) .editor-panel:not(.collapsed) {
+    flex: 1 !important;
   }
 }
 
@@ -955,15 +1006,12 @@ body {
 .mode-btn,
 .action-card,
 .predict-btn,
+.key,
 .custom-dropdown-trigger {
   height: var(--min-target-height) !important;
   min-height: var(--min-target-height) !important;
   max-height: var(--min-target-height) !important;
   box-sizing: border-box !important;
-}
-
-.key {
-  min-height: var(--min-target-height) !important;
 }
 
 /* --- Unified Hover Feedback System --- */
@@ -985,7 +1033,8 @@ body {
   bottom: 0;
   left: 0;
   width: 100vw;
-  height: 240px;
+  height: calc(5 * var(--min-target-height) + 16px) !important;
+  min-height: calc(5 * var(--min-target-height) + 16px) !important;
   z-index: 1000;
   box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.4);
   transform: translateY(100%);
@@ -994,8 +1043,8 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--glass-border);
-  padding: 12px;
-  box-sizing: border-box;
+  padding: 4px 8px 8px 8px !important;
+  box-sizing: border-box !important;
 }
 
 .keyboard-panel-wrapper.auto-hide.open {
@@ -1010,9 +1059,9 @@ body {
   border-radius: 12px !important;
   border: none;
   background: transparent;
-  padding: 0;
+  padding: 0 !important;
 }
 
 .app-container.keyboard-open {
-  padding-bottom: 250px;
+  padding-bottom: calc(5 * var(--min-target-height) + 24px) !important;
 }

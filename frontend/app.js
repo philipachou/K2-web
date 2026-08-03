@@ -968,6 +968,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  editorBox.addEventListener("input", adjustEditorBoxHeight);
+  setTimeout(adjustEditorBoxHeight, 50);
+
   document.getElementById("use-os-keyboard-toggle").addEventListener("change", updateSettingsVisibility);
 
   // Accordion Panel Collapsing Bindings
@@ -1011,6 +1014,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 function updateAppViewportHeight() {
   const vh = window.innerHeight;
   document.documentElement.style.setProperty('--app-height', `${vh}px`);
+}
+
+function adjustEditorBoxHeight() {
+  const editor = document.getElementById("editor-box");
+  if (!editor) return;
+
+  const style = window.getComputedStyle(editor);
+  const fontSize = parseFloat(style.fontSize) || 24;
+  const lineHeightVal = parseFloat(style.lineHeight);
+  const lineHeight = (!isNaN(lineHeightVal) && lineHeightVal > 0) ? lineHeightVal : (fontSize * 1.3);
+  
+  const paddingTop = parseFloat(style.paddingTop) || 6;
+  const paddingBottom = parseFloat(style.paddingBottom) || 6;
+  const borderTop = parseFloat(style.borderTopWidth) || 1;
+  const borderBottom = parseFloat(style.borderBottomWidth) || 1;
+  
+  const paddingTotal = paddingTop + paddingBottom + borderTop + borderBottom;
+  const minH = lineHeight + paddingTotal;
+  const maxH = (lineHeight * 3) + paddingTotal;
+
+  editor.style.height = "auto";
+  const scrollH = editor.scrollHeight;
+  const targetH = Math.min(Math.max(scrollH, minH), maxH);
+  
+  editor.style.height = `${targetH}px`;
+  editor.style.overflowY = scrollH > (maxH + 2) ? "auto" : "hidden";
 }
 
 function updateToolbarLayouts() {
