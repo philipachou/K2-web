@@ -552,6 +552,15 @@ body {
   align-items: center;
   gap: var(--button-gap-x, 4px);
   min-height: var(--min-target-height);
+  overflow-x: auto;
+  scrollbar-width: none; /* Hide scrollbar for cleaner look */
+  -ms-overflow-style: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.prediction-row::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for WebKit browsers */
 }
 
 .pred-label {
@@ -570,14 +579,9 @@ body {
 .prediction-list-wrapper {
   display: flex;
   gap: var(--button-gap-x, 4px);
-  overflow-x: auto;
-  flex: 1;
+  overflow-x: visible;
+  flex: 0 0 auto;
   align-items: center;
-  scrollbar-width: none;
-}
-
-.prediction-list-wrapper::-webkit-scrollbar {
-  display: none; /* Hide scrollbar for cleaner look */
 }
 
 .predict-btn {

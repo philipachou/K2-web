@@ -857,8 +857,55 @@ function setupDwellScrolling(containerId) {
   });
 
   container.addEventListener("mouseleave", () => {
-    clearInterval(scrollInterval);
-    scrollInterval = null;
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+      scrollInterval = null;
+    }
+  });
+}
+
+function setupHorizontalDwellScrolling(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  let scrollInterval = null;
+  let speed = 0;
+
+  container.addEventListener("mousemove", (e) => {
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const w = rect.width;
+    const threshold = Math.max(50, w * 0.2); // 20% left/right dwell scroll zone
+
+    if (x < threshold) {
+      const ratio = (threshold - x) / threshold;
+      speed = -ratio * 18;
+      if (!scrollInterval) {
+        scrollInterval = setInterval(() => {
+          container.scrollLeft += speed;
+        }, 16);
+      }
+    } else if (x > w - threshold) {
+      const ratio = (x - (w - threshold)) / threshold;
+      speed = ratio * 18;
+      if (!scrollInterval) {
+        scrollInterval = setInterval(() => {
+          container.scrollLeft += speed;
+        }, 16);
+      }
+    } else {
+      if (scrollInterval) {
+        clearInterval(scrollInterval);
+        scrollInterval = null;
+      }
+    }
+  });
+
+  container.addEventListener("mouseleave", () => {
+    if (scrollInterval) {
+      clearInterval(scrollInterval);
+      scrollInterval = null;
+    }
   });
 }
 
@@ -940,6 +987,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupUIBindings();
   setupDwellScrolling("chat-log-scroll");
   setupDwellScrolling("actions-grid");
+  setupHorizontalDwellScrolling("words-prediction-row");
+  setupHorizontalDwellScrolling("phrases-prediction-row");
 
   renderSavedActions();
   renderChatLog();
