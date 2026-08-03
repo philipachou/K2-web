@@ -882,6 +882,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setSetting("elevenlabs_voice", "URdpYjdnCOSIXKpzB6KE");
   }
   const hoverB = await getSetting("hover_brightness", "1.2");
+  const buttonGapX = await getSetting("button_gap_x", "4");
+  const buttonGapY = await getSetting("button_gap_y", "4");
   const useOS = await getSetting("use_os_keyboard", "0");
   const autoHide = await getSetting("auto_hide_k2_keyboard", "0");
 
@@ -890,6 +892,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("font-keyboard").value = fontKy;
   document.getElementById("min-target-width").value = minW;
   document.getElementById("min-target-height").value = minH;
+  const btnGapXEl = document.getElementById("button-gap-x");
+  const btnGapYEl = document.getElementById("button-gap-y");
+  if (btnGapXEl) btnGapXEl.value = buttonGapX;
+  if (btnGapYEl) btnGapYEl.value = buttonGapY;
   document.getElementById("basins-of-attraction-toggle").checked = (basins === "1");
   document.getElementById("use-os-keyboard-toggle").checked = (useOS === "1");
   document.getElementById("auto-hide-k2-keyboard-toggle").checked = (autoHide === "1");
@@ -907,6 +913,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
   settings.min_target_width = parseInt(minW, 10) || 50;
   settings.min_target_height = parseInt(minH, 10) || 40;
+  settings.button_gap_x = parseInt(buttonGapX, 10) || 4;
+  settings.button_gap_y = parseInt(buttonGapY, 10) || 4;
   settings.basins_of_attraction = basins === "1" ? 1 : 0;
   settings.use_os_keyboard = useOS === "1" ? 1 : 0;
   settings.auto_hide_k2_keyboard = autoHide === "1" ? 1 : 0;
@@ -919,6 +927,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
   document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
   document.documentElement.style.setProperty("--min-target-width", `${settings.min_target_width}px`);
+  document.documentElement.style.setProperty("--button-gap-x", `${settings.button_gap_x}px`);
+  document.documentElement.style.setProperty("--button-gap-y", `${settings.button_gap_y}px`);
 
   // Populate local TTS Voice dropdown
   populateVoiceDropdown();
@@ -1044,7 +1054,7 @@ function adjustEditorBoxHeight() {
 
 function updateToolbarLayouts() {
   const minW = settings.min_target_width || 50;
-  const gap = 4;
+  const gap = settings.button_gap_x !== undefined ? settings.button_gap_x : 4;
 
   // 1. Edit Toolbar (10 buttons)
   const editToolbar = document.querySelector(".edit-toolbar");
@@ -1477,6 +1487,8 @@ function setupUIBindings() {
     const fontKy = document.getElementById("font-keyboard").value;
     const minW = document.getElementById("min-target-width").value;
     const minH = document.getElementById("min-target-height").value;
+    const btnGapXVal = document.getElementById("button-gap-x")?.value || "4";
+    const btnGapYVal = document.getElementById("button-gap-y")?.value || "4";
     const basins = document.getElementById("basins-of-attraction-toggle").checked ? "1" : "0";
     const useOS = document.getElementById("use-os-keyboard-toggle").checked ? "1" : "0";
     const autoHide = document.getElementById("auto-hide-k2-keyboard-toggle").checked ? "1" : "0";
@@ -1498,6 +1510,8 @@ function setupUIBindings() {
     await setSetting("font_size_keyboard", fontKy);
     await setSetting("min_target_width", minW);
     await setSetting("min_target_height", minH);
+    await setSetting("button_gap_x", btnGapXVal);
+    await setSetting("button_gap_y", btnGapYVal);
     await setSetting("basins_of_attraction", basins);
     await setSetting("use_os_keyboard", useOS);
     await setSetting("auto_hide_k2_keyboard", autoHide);
@@ -1522,6 +1536,8 @@ function setupUIBindings() {
     settings.font_size_keyboard = parseInt(fontKy, 10) || 24;
     settings.min_target_width = parseInt(minW, 10) || 50;
     settings.min_target_height = parseInt(minH, 10) || 40;
+    settings.button_gap_x = parseInt(btnGapXVal, 10) || 4;
+    settings.button_gap_y = parseInt(btnGapYVal, 10) || 4;
     settings.basins_of_attraction = basins === "1" ? 1 : 0;
     settings.use_os_keyboard = useOS === "1" ? 1 : 0;
     settings.auto_hide_k2_keyboard = autoHide === "1" ? 1 : 0;
@@ -1537,6 +1553,8 @@ function setupUIBindings() {
     document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
     document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
     document.documentElement.style.setProperty("--min-target-width", `${settings.min_target_width}px`);
+    document.documentElement.style.setProperty("--button-gap-x", `${settings.button_gap_x}px`);
+    document.documentElement.style.setProperty("--button-gap-y", `${settings.button_gap_y}px`);
     document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
 
     updatePredictionsAndKeyboard();

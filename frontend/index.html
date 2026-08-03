@@ -32,6 +32,9 @@
           </div>
         </section>
 
+        <!-- Vertical Divider between Chat Log & Actions Panel -->
+        <div class="panel-divider vertical-divider"></div>
+
         <!-- Right Column: Saved Actions Macro Grid -->
         <section class="panel actions-panel labeled-panel">
           <div class="panel-label">Actions</div>
@@ -91,6 +94,9 @@
         </section>
       </div>
 
+      <!-- Horizontal Divider between Top Row & Editor Panel -->
+      <div class="panel-divider horizontal-divider"></div>
+
       <!-- Row 1: Editor Toolbar & Editor Text Box -->
       <main class="panel editor-panel labeled-panel">
         <div class="panel-label">Editor</div>
@@ -117,6 +123,9 @@
       </main>
     </div>
 
+    <!-- Horizontal Divider between Upper Workspace & Predictor -->
+    <div class="panel-divider horizontal-divider"></div>
+
     <!-- Row 2: Predictions Bar (WORDS on top, PHRASES below) -->
     <div class="predictions-panel labeled-panel">
       <div class="panel-label">Predictor</div>
@@ -132,6 +141,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Horizontal Divider between Predictor & Keyboard -->
+    <div class="panel-divider horizontal-divider"></div>
 
     <!-- Row 3: QWERTY Virtual Keyboard -->
     <div class="keyboard-panel-wrapper labeled-panel">
@@ -164,6 +176,17 @@
           <div>
             <label for="font-keyboard">Keyboard Font Size:</label>
             <input type="number" id="font-keyboard" value="24" min="12" max="40">
+          </div>
+        </div>
+
+        <div class="form-group row-group">
+          <div>
+            <label for="button-gap-x">Button Gap Horizontal (px):</label>
+            <input type="number" id="button-gap-x" value="4" min="0" max="25">
+          </div>
+          <div>
+            <label for="button-gap-y">Button Gap Vertical (px):</label>
+            <input type="number" id="button-gap-y" value="4" min="0" max="25">
           </div>
         </div>
 
