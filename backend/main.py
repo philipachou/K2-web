@@ -215,7 +215,7 @@ def chat(request: ChatRequest):
 
         # Create chat session with tools and automatic function calling
         chat_session = client.chats.create(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             history=sdk_history,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -223,8 +223,23 @@ def chat(request: ChatRequest):
             )
         )
         
-        response = chat_session.send_message(user_prompt)
-        raw_text = response.text.strip()
+        # Attempt Gemini API call with server-side retry for transient network/API glitches
+        max_server_attempts = 2
+        last_exception = None
+        raw_text = ""
+        
+        for server_attempt in range(max_server_attempts):
+            try:
+                response = chat_session.send_message(user_prompt)
+                raw_text = response.text.strip()
+                break
+            except Exception as ex:
+                last_exception = ex
+                print(f"Gemini API server-side attempt {server_attempt + 1} failed: {ex}")
+                time.sleep(1)
+        else:
+            if last_exception:
+                raise last_exception
         
         reply, suggestions = parse_suggestions(raw_text)
         client_actions = getattr(thread_local, "client_actions", [])
@@ -290,7 +305,7 @@ def predict_words(request: WordPredictionRequest):
         )
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
@@ -364,7 +379,7 @@ def predict_phrases(request: PhrasePredictionRequest):
             )
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2
@@ -400,7 +415,7 @@ def transcribe(file: UploadFile = File(...)):
         
         start_time = time.perf_counter()
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=[
                 audio_part,
                 "Transcribe this audio verbatim."
@@ -549,7 +564,7 @@ def compile_profile(profile_text: str = Form(...)):
         )
         
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-2.0-flash",
             contents=f"Compile this biography profile:\n{profile_text}",
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,

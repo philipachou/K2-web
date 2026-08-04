@@ -225,6 +225,12 @@ body {
   align-self: flex-start;
 }
 
+.chat-message.cloud_ai.thinking {
+  font-style: italic;
+  opacity: 0.85;
+  animation: pulse-thinking 1.5s infinite ease-in-out;
+}
+
 .chat-message.system {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--glass-border);
@@ -232,6 +238,12 @@ body {
   align-self: stretch;
   font-size: 0.85rem;
   text-align: left;
+}
+
+@keyframes pulse-thinking {
+  0% { opacity: 0.5; border-color: rgba(16, 185, 129, 0.3); }
+  50% { opacity: 1.0; border-color: rgba(16, 185, 129, 0.8); }
+  100% { opacity: 0.5; border-color: rgba(16, 185, 129, 0.3); }
 }
 
 /* --- Actions Panel (Right) --- */

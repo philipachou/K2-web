@@ -2239,7 +2239,11 @@ async function executeActionByMode(tag, action_text) {
 async function executeSendCloud() {
   const editor = document.getElementById("editor-box");
   const text = editor.value;
-  if (!text.trim()) return;
+  if (!text.trim()) {
+    await addChatMessage("system", "Please type or dictate a message before sending to @CloudAI.");
+    renderChatLog();
+    return;
+  }
 
   addChatMessage("user", text);
   renderChatLog();
@@ -2248,11 +2252,11 @@ async function executeSendCloud() {
   loadedActionTag = null; // Clear macro selection
   updatePredictionsAndKeyboard();
 
-  // Show temporary "Thinking..." bubble in chat log
+  // Show live "Thinking..." bubble in chat log
   const log = document.getElementById("chat-log-scroll");
   const thinkingDiv = document.createElement("div");
   thinkingDiv.className = "chat-message cloud_ai thinking";
-  thinkingDiv.textContent = "Cloud AI is thinking...";
+  thinkingDiv.textContent = "Cloud AI is thinking... (Attempt 1 of 3)";
   log.appendChild(thinkingDiv);
   log.scrollTop = log.scrollHeight;
 
@@ -2263,61 +2267,96 @@ async function executeSendCloud() {
   const haUrl = await getSetting("home_assistant_url", "");
   const haToken = await getSetting("home_assistant_token", "");
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds timeout
+  const maxAttempts = 3;
+  let lastErrorMsg = "Unknown network error";
+  let success = false;
 
-  try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_message: text,
-        history,
-        profile_summary,
-        home_assistant_url: haUrl,
-        home_assistant_token: haToken
-      }),
-      signal: controller.signal
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1) {
+      thinkingDiv.textContent = `No response, trying again... (Attempt ${attempt} of ${maxAttempts})`;
+      log.scrollTop = log.scrollHeight;
+      await new Promise(r => setTimeout(r, 1500)); // 1.5s delay before retry
+    }
 
-    clearTimeout(timeoutId);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout per attempt
 
-    // Remove "Thinking..." bubble
-    thinkingDiv.remove();
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_message: text,
+          history,
+          profile_summary,
+          home_assistant_url: haUrl,
+          home_assistant_token: haToken
+        }),
+        signal: controller.signal
+      });
 
-    const data = await res.json();
-    if (data.reply) {
-      await addChatMessage("cloud_ai", data.reply);
-      renderChatLog();
-      renderSuggestions(data.suggestions);
+      clearTimeout(timeoutId);
 
-      // Execute returned client-side actions (TTS, inject copy, HA status updates)
-      if (data.client_actions && Array.isArray(data.client_actions)) {
-        for (const action of data.client_actions) {
-          if (action.type === "speak") {
-            speakTTS(action.text);
-          } else if (action.type === "copy") {
-            try {
-              await navigator.clipboard.writeText(action.text);
-              addChatMessage("system", `Injected text (copied to clipboard): "${action.text}"`);
+      if (!res.ok) {
+        let errDetail = `HTTP ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData.detail) errDetail = errData.detail;
+        } catch (_) {}
+        throw new Error(errDetail);
+      }
+
+      const data = await res.json();
+      if (data.reply) {
+        if (thinkingDiv.parentNode) {
+          thinkingDiv.remove();
+        }
+        await addChatMessage("cloud_ai", data.reply);
+        renderChatLog();
+        renderSuggestions(data.suggestions);
+
+        // Execute returned client-side actions (TTS, inject copy, HA status updates)
+        if (data.client_actions && Array.isArray(data.client_actions)) {
+          for (const action of data.client_actions) {
+            if (action.type === "speak") {
+              speakTTS(action.text);
+            } else if (action.type === "copy") {
+              try {
+                await navigator.clipboard.writeText(action.text);
+                addChatMessage("system", `Injected text (copied to clipboard): "${action.text}"`);
+                renderChatLog();
+              } catch (err) {
+                console.error(err);
+              }
+            } else if (action.type === "status") {
+              addChatMessage("system", action.detail);
               renderChatLog();
-            } catch (err) {
-              console.error(err);
             }
-          } else if (action.type === "status") {
-            addChatMessage("system", action.detail);
-            renderChatLog();
           }
         }
+        success = true;
+        break; // Successfully received response!
+      } else if (data.error) {
+        throw new Error(data.error);
+      } else {
+        throw new Error("Empty response payload from server");
       }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === "AbortError") {
+        lastErrorMsg = "Request timed out (30s limit)";
+      } else {
+        lastErrorMsg = err.message || "Network error";
+      }
+      console.warn(`Cloud AI attempt ${attempt} failed:`, lastErrorMsg);
     }
-  } catch (err) {
-    clearTimeout(timeoutId);
+  }
+
+  if (!success) {
     if (thinkingDiv.parentNode) {
       thinkingDiv.remove();
     }
-    console.error("Cloud chat request failed or timed out:", err);
-    addChatMessage("system", "Cloud AI request timed out. Please try again.");
+    addChatMessage("system", `⚠️ Cloud AI could not connect after ${maxAttempts} attempts: ${lastErrorMsg}. Please try sending again.`);
     renderChatLog();
   }
 }
