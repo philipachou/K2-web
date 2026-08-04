@@ -215,7 +215,7 @@ def chat(request: ChatRequest):
 
         # Create chat session with tools and automatic function calling
         chat_session = client.chats.create(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             history=sdk_history,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -305,7 +305,7 @@ def predict_words(request: WordPredictionRequest):
         )
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
@@ -379,7 +379,7 @@ def predict_phrases(request: PhrasePredictionRequest):
             )
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2
@@ -415,7 +415,7 @@ def transcribe(file: UploadFile = File(...)):
         
         start_time = time.perf_counter()
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[
                 audio_part,
                 "Transcribe this audio verbatim."
@@ -564,7 +564,7 @@ def compile_profile(profile_text: str = Form(...)):
         )
         
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=f"Compile this biography profile:\n{profile_text}",
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
