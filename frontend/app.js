@@ -864,8 +864,10 @@ function setupDwellScrolling(containerId) {
   });
 }
 
-function setupHorizontalDwellScrolling(containerId) {
-  const container = document.getElementById(containerId);
+function setupHorizontalDwellScrolling(containerOrId) {
+  const container = typeof containerOrId === "string"
+    ? (document.getElementById(containerOrId) || document.querySelector("." + containerOrId))
+    : containerOrId;
   if (!container) return;
 
   let scrollInterval = null;
@@ -907,6 +909,54 @@ function setupHorizontalDwellScrolling(containerId) {
       scrollInterval = null;
     }
   });
+
+  // Mouse click & drag horizontal sliding
+  let isDown = false;
+  let startX;
+  let scrollLeft;
+  let hasDragged = false;
+
+  container.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    isDown = true;
+    hasDragged = false;
+    startX = e.pageX - container.offsetLeft;
+    scrollLeft = container.scrollLeft;
+  });
+
+  container.addEventListener("mouseleave", () => {
+    isDown = false;
+  });
+
+  container.addEventListener("mouseup", () => {
+    isDown = false;
+  });
+
+  container.addEventListener("mousemove", (e) => {
+    if (!isDown) return;
+    const x = e.pageX - container.offsetLeft;
+    const walk = (x - startX);
+    if (Math.abs(walk) > 4) {
+      hasDragged = true;
+    }
+    container.scrollLeft = scrollLeft - walk;
+  });
+
+  container.addEventListener("click", (e) => {
+    if (hasDragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      hasDragged = false;
+    }
+  }, true);
+
+  // Mouse wheel horizontal scrolling
+  container.addEventListener("wheel", (e) => {
+    if (e.deltaY !== 0 && !e.shiftKey) {
+      e.preventDefault();
+      container.scrollLeft += e.deltaY;
+    }
+  }, { passive: false });
 }
 
 // --- Page Setup & Listeners ---
@@ -989,6 +1039,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupDwellScrolling("actions-grid");
   setupHorizontalDwellScrolling("words-prediction-row");
   setupHorizontalDwellScrolling("phrases-prediction-row");
+  setupHorizontalDwellScrolling("edit-toolbar");
+  setupHorizontalDwellScrolling("actions-header-controls");
 
   renderSavedActions();
   renderChatLog();
@@ -1103,68 +1155,39 @@ function adjustEditorBoxHeight() {
 
 function updateToolbarLayouts() {
   const minW = settings.min_target_width || 50;
-  const gap = settings.button_gap_x !== undefined ? settings.button_gap_x : 4;
 
-  // 1. Edit Toolbar (10 buttons)
+  // 1. Edit Toolbar
   const editToolbar = document.querySelector(".edit-toolbar");
   if (editToolbar) {
-    const w = editToolbar.clientWidth;
     const buttons = editToolbar.querySelectorAll(".btn");
-    const n = buttons.length;
-    if (w > 0 && n > 0) {
-      const kMax = Math.max(1, Math.floor((w + gap) / (minW + gap)));
-      const r = Math.max(1, Math.ceil(n / kMax));
-      const c = Math.ceil(n / r);
-      const flexPct = (100 / c).toFixed(2);
-
-      buttons.forEach(btn => {
-        btn.style.flex = `1 1 calc(${flexPct}% - ${gap}px)`;
-        btn.style.maxWidth = `calc(${flexPct}% - ${gap}px)`;
-        btn.style.minWidth = `${minW}px`;
-      });
-
-      const currentBtnW = (w - (c - 1) * gap) / c;
-      const useShort = currentBtnW < 75 || r > 1;
-      buttons.forEach(btn => {
-        const full = btn.querySelector(".btn-text-full");
-        const short = btn.querySelector(".btn-text-short");
-        if (full && short) {
-          full.style.display = useShort ? "none" : "inline";
-          short.style.display = useShort ? "inline" : "none";
-        }
-      });
-    }
+    buttons.forEach(btn => {
+      btn.style.flex = "0 0 auto";
+      btn.style.maxWidth = "none";
+      btn.style.minWidth = `${minW}px`;
+      const full = btn.querySelector(".btn-text-full");
+      const short = btn.querySelector(".btn-text-short");
+      if (full && short) {
+        full.style.display = "inline";
+        short.style.display = "none";
+      }
+    });
   }
 
-  // 2. Action Header Controls (9 items)
+  // 2. Action Header Controls
   const actionControls = document.querySelector(".actions-header-controls");
   if (actionControls) {
-    const w = actionControls.clientWidth;
     const items = actionControls.querySelectorAll(".mode-btn, .btn-settings-icon, .custom-dropdown");
-    const n = items.length;
-    if (w > 0 && n > 0) {
-      const kMax = Math.max(1, Math.floor((w + gap) / (minW + gap)));
-      const r = Math.max(1, Math.ceil(n / kMax));
-      const c = Math.ceil(n / r);
-      const flexPct = (100 / c).toFixed(2);
-
-      items.forEach(item => {
-        item.style.flex = `1 1 calc(${flexPct}% - ${gap}px)`;
-        item.style.maxWidth = `calc(${flexPct}% - ${gap}px)`;
-        item.style.minWidth = `${minW}px`;
-      });
-
-      const currentItemW = (w - (c - 1) * gap) / c;
-      const useShort = currentItemW < 75 || r > 1;
-      items.forEach(item => {
-        const full = item.querySelector(".btn-text-full");
-        const short = item.querySelector(".btn-text-short");
-        if (full && short) {
-          full.style.display = useShort ? "none" : "inline";
-          short.style.display = useShort ? "inline" : "none";
-        }
-      });
-    }
+    items.forEach(item => {
+      item.style.flex = "0 0 auto";
+      item.style.maxWidth = "none";
+      item.style.minWidth = `${minW}px`;
+      const full = item.querySelector(".btn-text-full");
+      const short = item.querySelector(".btn-text-short");
+      if (full && short) {
+        full.style.display = "inline";
+        short.style.display = "none";
+      }
+    });
   }
 }
 

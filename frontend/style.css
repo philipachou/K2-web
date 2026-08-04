@@ -249,37 +249,51 @@ body {
 /* --- Actions Panel (Right) --- */
 .actions-header-controls {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: var(--button-gap-y, 4px) var(--button-gap-x, 4px);
+  gap: var(--button-gap-x, 4px);
   width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none; /* Hide scrollbar for cleaner look */
+  -ms-overflow-style: none;
+  touch-action: pan-x !important;
+  user-select: none;
+  -webkit-user-select: none;
   position: relative;
   z-index: 100;
+  box-sizing: border-box;
+}
+
+.actions-header-controls::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for WebKit browsers */
 }
 
 .action-modes {
-  display: contents;
+  display: flex;
+  align-items: center;
+  gap: var(--button-gap-x, 4px);
+  flex: 0 0 auto;
 }
 
 .mode-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--glass-border);
-  padding: 4px 1px;
+  padding: 4px 10px;
   border-radius: 6px;
   color: var(--color-text);
   cursor: pointer;
-  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
+  font-size: clamp(0.65rem, 1.2vw, 0.8rem);
   font-weight: 600;
   transition: all 0.15s ease;
-  flex: 1 1 var(--min-target-width);
+  flex: 0 0 auto;
   min-width: var(--min-target-width);
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
   line-height: 1.1;
+  touch-action: pan-x !important;
 }
 
 #mode-delete { background: #475569; color: #fff; }
@@ -309,14 +323,15 @@ body {
 .custom-dropdown {
   position: relative;
   user-select: none;
-  flex: 1 1 var(--min-target-width);
-  min-width: var(--min-target-width);
+  flex: 0 0 auto;
+  min-width: 75px;
   height: var(--min-target-height) !important;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0;
   padding: 0;
+  touch-action: pan-x !important;
 }
 
 .custom-dropdown-trigger {
@@ -446,22 +461,35 @@ body {
 
 .edit-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--button-gap-y, 4px) var(--button-gap-x, 4px);
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--button-gap-x, 4px);
   width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-x !important;
+  user-select: none;
+  -webkit-user-select: none;
+  box-sizing: border-box;
+}
+
+.edit-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .edit-toolbar .btn {
-  flex: 1 1 var(--min-target-width);
+  flex: 0 0 auto;
   min-width: var(--min-target-width);
-  padding: 6px 2px;
-  font-size: clamp(0.65rem, 1.3vw, 0.85rem);
-  white-space: normal;
-  word-break: break-word;
+  padding: 6px 10px;
+  font-size: clamp(0.7rem, 1.3vw, 0.85rem);
+  white-space: nowrap;
+  word-break: normal;
   line-height: 1.15;
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: pan-x !important;
 }
 
 .btn-text-full {
@@ -514,13 +542,15 @@ body {
 .btn-settings-icon {
   background: #475569;
   color: #fff;
-  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
-  padding: 4px 1px;
+  font-size: clamp(0.65rem, 1.2vw, 0.8rem);
+  padding: 4px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1 1 var(--min-target-width);
+  flex: 0 0 auto;
   min-width: var(--min-target-width);
+  white-space: nowrap;
+  touch-action: pan-x !important;
 }
 
 .textbox-wrapper {
