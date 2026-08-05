@@ -157,7 +157,7 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
             txt = attrs.get("text", "") or attrs.get("content", "")
             if txt:
                 inject_text(txt)
-        elif op_type in ["share", "email", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder"]:
+        elif op_type in ["share", "email", "sms", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder"]:
             client_actions.append({
                 "type": "operation",
                 "op_type": op_type,
@@ -230,19 +230,20 @@ def chat(request: ChatRequest):
             "Kay reads proficiently. You possess comprehensive general knowledge across all domains (including quantum physics, science, history, technology, literature, and general conversation). "
             "You have access to Google Search for live web information (weather, AQI, news, citations) and sandboxed Python Code Execution for math, list sorting, word counting, and data processing.\n\n"
             "OPERATIONAL ACTIONS:\n"
-            "When Kay explicitly requests an operational action, include a structured XML <operation> tag inside your response. "
-            "Only output an <operation> tag when an action is explicitly requested by Kay.\n"
+            "When Kay explicitly or implicitly requests an operational action (including follow-ups like 'Send it again', 'Text him again', 'Do it again'), you MUST include a structured XML <operation> tag inside your response. "
+            "NEVER claim to have performed, sent, or repeated an action without including the corresponding <operation .../> tag.\n"
             "Supported operation schemas:\n"
             "  1. Home Assistant: <operation type=\"home_assistant\" service=\"turn_on|turn_off|toggle|lock|unlock\" entity_id=\"...\"/>\n"
             "  2. Text-to-Speech: <operation type=\"speak\" phrase=\"Text to speak out loud\"/>\n"
             "  3. Inject Text: <operation type=\"inject\" text=\"Text to inject/type\"/>\n"
             "  4. Web Share: <operation type=\"share\" title=\"Title\" text=\"Text to share\" url=\"...\"/>\n"
             "  5. Email: <operation type=\"email\" recipient=\"...\" subject=\"...\" body=\"...\"/>\n"
-            "  6. Export File: <operation type=\"export_file\" filename=\"schedule.csv\" content=\"...\"/>\n"
-            "  7. Display Image: <operation type=\"show_image\" url=\"...\" caption=\"...\"/>\n"
-            "  8. Set Timer: <operation type=\"set_timer\" seconds=\"300\" label=\"Tea timer\"/>\n"
-            "  9. Set Alarm: <operation type=\"set_alarm\" time=\"07:30\" label=\"Morning alarm\"/>\n"
-            " 10. Set Reminder: <operation type=\"set_reminder\" time=\"15:00\" label=\"Call Pete\"/>\n\n"
+            "  6. SMS / Text Message: <operation type=\"sms\" recipient=\"...\" message=\"...\"/>\n"
+            "  7. Export File: <operation type=\"export_file\" filename=\"schedule.csv\" content=\"...\"/>\n"
+            "  8. Display Image: <operation type=\"show_image\" url=\"...\" caption=\"...\"/>\n"
+            "  9. Set Timer: <operation type=\"set_timer\" seconds=\"300\" label=\"Tea timer\"/>\n"
+            " 10. Set Alarm: <operation type=\"set_alarm\" time=\"07:30\" label=\"Morning alarm\"/>\n"
+            " 11. Set Reminder: <operation type=\"set_reminder\" time=\"15:00\" label=\"Call Pete\"/>\n\n"
             "SUGGESTIONS:\n"
             "At the end of EVERY response, regardless of topic or response length, you MUST append a list of exactly three relevant suggested actions "
             "that Kay might want to take next, wrapped in a <suggestions> XML block.\n"

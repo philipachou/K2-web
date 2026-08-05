@@ -1135,12 +1135,12 @@ function adjustEditorBoxHeight() {
   const fontSize = parseFloat(style.fontSize) || 24;
   const lineHeightVal = parseFloat(style.lineHeight);
   const lineHeight = (!isNaN(lineHeightVal) && lineHeightVal > 0) ? lineHeightVal : (fontSize * 1.3);
-  
+
   const paddingTop = parseFloat(style.paddingTop) || 6;
   const paddingBottom = parseFloat(style.paddingBottom) || 6;
   const borderTop = parseFloat(style.borderTopWidth) || 1;
   const borderBottom = parseFloat(style.borderBottomWidth) || 1;
-  
+
   const paddingTotal = paddingTop + paddingBottom + borderTop + borderBottom;
   const minH = lineHeight + paddingTotal;
   const maxH = (lineHeight * 3) + paddingTotal;
@@ -1148,7 +1148,7 @@ function adjustEditorBoxHeight() {
   editor.style.height = "auto";
   const scrollH = editor.scrollHeight;
   const targetH = Math.min(Math.max(scrollH, minH), maxH);
-  
+
   editor.style.height = `${targetH}px`;
   editor.style.overflowY = scrollH > (maxH + 2) ? "auto" : "hidden";
 }
@@ -2325,7 +2325,7 @@ async function executeSendCloud() {
         try {
           const errData = await res.json();
           if (errData.detail) errDetail = errData.detail;
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(errDetail);
       }
 
@@ -2423,13 +2423,13 @@ function playTimerChime() {
 function renderActiveTimers() {
   const container = document.getElementById("active-timers-container");
   if (!container) return;
-  
+
   if (activeTimers.length === 0) {
     container.classList.remove("has-timers");
     container.innerHTML = "";
     return;
   }
-  
+
   container.classList.add("has-timers");
   container.innerHTML = "";
 
@@ -2442,13 +2442,13 @@ function renderActiveTimers() {
     const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
     chip.innerHTML = `<span>⏱️ ${t.label}: <strong>${timeStr}</strong></span>`;
-    
+
     const cancelBtn = document.createElement("button");
     cancelBtn.className = "timer-cancel-btn";
     cancelBtn.textContent = "✖";
     cancelBtn.title = "Cancel Timer";
     cancelBtn.onclick = () => cancelTimer(t.id);
-    
+
     chip.appendChild(cancelBtn);
     container.appendChild(chip);
   });
@@ -2484,7 +2484,7 @@ function handleSetTimer(seconds, label = "Timer") {
       clearInterval(timerObj.intervalId);
       activeTimers = activeTimers.filter(t => t.id !== id);
       renderActiveTimers();
-      
+
       playTimerChime();
       const endMsg = `⏱️ Timer finished: "${label}"!`;
       await addChatMessage("system", endMsg);
@@ -2577,7 +2577,7 @@ async function processClientAction(action) {
       const txt = data.text || data.content || "";
       if (txt) {
         injectTextToEditor(txt);
-        navigator.clipboard.writeText(txt).catch(() => {});
+        navigator.clipboard.writeText(txt).catch(() => { });
         addChatMessage("system", `Injected text: "${txt}"`);
         renderChatLog();
       }
@@ -2590,6 +2590,20 @@ async function processClientAction(action) {
       const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.open(mailtoUrl, "_blank");
       addChatMessage("system", `📧 Opened email draft to ${recipient || "recipient"}`);
+      renderChatLog();
+    } else if (op === "sms") {
+      const recipient = data.recipient || data.phone || "";
+      const body = data.message || data.text || data.content || "";
+      const smsUrl = `sms:${encodeURIComponent(recipient)}${body ? `?body=${encodeURIComponent(body)}` : ''}`;
+
+      // Attempt native SMS protocol navigation
+      try {
+        window.location.href = smsUrl;
+      } catch (e) {
+        console.warn("SMS protocol launch failed:", e);
+      }
+
+      await addChatMessage("system", `📱 Prepared SMS text message to ${recipient || "contact"}: "${body}"`);
       renderChatLog();
     } else if (op === "export_file") {
       handleExportFile(data.filename || "export.txt", data.content || data.text || "");
