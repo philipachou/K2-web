@@ -1161,3 +1161,52 @@ body {
 .app-container.keyboard-open {
   padding-bottom: calc(5 * var(--min-target-height) + 24px) !important;
 }
+
+/* --- Active Timers Widget --- */
+.active-timers-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.4);
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: 8px 8px 0 0;
+  display: none;
+}
+
+.active-timers-container.has-timers {
+  display: flex;
+}
+
+.timer-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(59, 130, 246, 0.4); }
+  50% { border-color: rgba(59, 130, 246, 0.8); }
+}
+
+.timer-cancel-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.timer-cancel-btn:hover {
+  color: #f87171;
+}

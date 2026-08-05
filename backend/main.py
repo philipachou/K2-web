@@ -126,8 +126,48 @@ def control_home_assistant(service: str, entity_id: str) -> str:
     except Exception as e:
         return f"Error connecting to Home Assistant: {str(e)}"
 
-# Suggestions parsing helper
-def parse_suggestions(text: str) -> tuple[str, list[dict]]:
+# Operations and Suggestions parsing helper
+def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[str, list[dict]]:
+    # Bind thread_local.client_actions so helper functions append to client_actions
+    thread_local.client_actions = client_actions
+
+    # 1. Parse <operation ...>...</operation> and self-closing <operation .../>
+    op_pattern = r'<operation\s+(.*?)(?:>(.*?)</operation>|/>)'
+    op_matches = re.findall(op_pattern, text, re.DOTALL)
+    
+    for attrs_str, content_str in op_matches:
+        # Extract attributes from attrs_str (e.g. type="home_assistant" service="turn_on")
+        attrs = dict(re.findall(r'(\w+)=["\'](.*?)["\']', attrs_str))
+        op_type = attrs.get("type", "").strip()
+        
+        # Merge inner tag content if present
+        if content_str and content_str.strip():
+            attrs["content"] = content_str.strip()
+            
+        if op_type == "home_assistant":
+            service = attrs.get("service", "")
+            entity_id = attrs.get("entity_id", "")
+            if service and entity_id:
+                control_home_assistant(service, entity_id)
+        elif op_type == "speak":
+            phrase = attrs.get("phrase", "") or attrs.get("content", "")
+            if phrase:
+                speak_phrase(phrase)
+        elif op_type == "inject":
+            txt = attrs.get("text", "") or attrs.get("content", "")
+            if txt:
+                inject_text(txt)
+        elif op_type in ["share", "email", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder"]:
+            client_actions.append({
+                "type": "operation",
+                "op_type": op_type,
+                "data": attrs
+            })
+
+    # Clean operation tags from user-facing reply
+    clean_text = re.sub(r'<operation\s+.*?(?:>.*?</operation>|/>)', '', text, flags=re.DOTALL)
+
+    # 2. Parse <suggestions>
     suggestions = []
     action_tags = re.findall(r'<action\s+(.*?)>(.*?)</action>', text, re.DOTALL)
     for attrs, action_text in action_tags:
@@ -138,7 +178,9 @@ def parse_suggestions(text: str) -> tuple[str, list[dict]]:
             "action_text": action_text.strip()
         })
         
-    clean_text = re.sub(r'<suggestions>.*?</suggestions>', '', text, flags=re.DOTALL).strip()
+    clean_text = re.sub(r'<suggestions>.*?</suggestions>', '', clean_text, flags=re.DOTALL)
+    # Clean up multi-blank lines and trailing whitespace
+    clean_text = re.sub(r'\n{3,}', '\n\n', clean_text).strip()
     if not clean_text:
         clean_text = text.split("<suggestions>")[0].strip()
         
@@ -186,9 +228,22 @@ def chat(request: ChatRequest):
         system_instruction = (
             "You are K2, an intelligent, highly capable assistive AI companion for Kay. "
             "Kay reads proficiently. You possess comprehensive general knowledge across all domains (including quantum physics, science, history, technology, literature, and general conversation). "
-            "When Kay asks general knowledge questions, technical inquiries, or complex topics, provide a thorough, accurate, and comprehensive explanation directly from your knowledge base without refusing or constraining yourself to tool calls.\n"
-            "Only invoke a registered tool (such as smart home control or text injection) when Kay explicitly requests an operational action. "
-            "When Kay asks for a quick action or simple operational task, keep your response brief and direct without unnecessary diatribe.\n\n"
+            "You have access to Google Search for live web information (weather, AQI, news, citations) and sandboxed Python Code Execution for math, list sorting, word counting, and data processing.\n\n"
+            "OPERATIONAL ACTIONS:\n"
+            "When Kay explicitly requests an operational action, include a structured XML <operation> tag inside your response. "
+            "Only output an <operation> tag when an action is explicitly requested by Kay.\n"
+            "Supported operation schemas:\n"
+            "  1. Home Assistant: <operation type=\"home_assistant\" service=\"turn_on|turn_off|toggle|lock|unlock\" entity_id=\"...\"/>\n"
+            "  2. Text-to-Speech: <operation type=\"speak\" phrase=\"Text to speak out loud\"/>\n"
+            "  3. Inject Text: <operation type=\"inject\" text=\"Text to inject/type\"/>\n"
+            "  4. Web Share: <operation type=\"share\" title=\"Title\" text=\"Text to share\" url=\"...\"/>\n"
+            "  5. Email: <operation type=\"email\" recipient=\"...\" subject=\"...\" body=\"...\"/>\n"
+            "  6. Export File: <operation type=\"export_file\" filename=\"schedule.csv\" content=\"...\"/>\n"
+            "  7. Display Image: <operation type=\"show_image\" url=\"...\" caption=\"...\"/>\n"
+            "  8. Set Timer: <operation type=\"set_timer\" seconds=\"300\" label=\"Tea timer\"/>\n"
+            "  9. Set Alarm: <operation type=\"set_alarm\" time=\"07:30\" label=\"Morning alarm\"/>\n"
+            " 10. Set Reminder: <operation type=\"set_reminder\" time=\"15:00\" label=\"Call Pete\"/>\n\n"
+            "SUGGESTIONS:\n"
             "At the end of EVERY response, regardless of topic or response length, you MUST append a list of exactly three relevant suggested actions "
             "that Kay might want to take next, wrapped in a <suggestions> XML block.\n"
             "Each action inside the block must be of the form:\n"
@@ -213,13 +268,18 @@ def chat(request: ChatRequest):
             f"User message: {request.user_message}"
         )
 
-        # Create chat session with tools and automatic function calling
+        # Create chat session with native Google Search and Code Execution tools
         chat_session = client.chats.create(
             model="gemini-2.5-flash",
             history=sdk_history,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                tools=[control_home_assistant, speak_phrase, inject_text]
+                tools=[
+                    types.Tool(
+                        google_search=types.GoogleSearch(),
+                        code_execution=types.ToolCodeExecution()
+                    )
+                ]
             )
         )
         
@@ -241,8 +301,8 @@ def chat(request: ChatRequest):
             if last_exception:
                 raise last_exception
         
-        reply, suggestions = parse_suggestions(raw_text)
         client_actions = getattr(thread_local, "client_actions", [])
+        reply, suggestions = parse_operations_and_suggestions(raw_text, client_actions)
         
         return {
             "reply": reply,

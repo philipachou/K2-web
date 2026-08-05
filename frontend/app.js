@@ -2338,23 +2338,10 @@ async function executeSendCloud() {
         renderChatLog();
         renderSuggestions(data.suggestions);
 
-        // Execute returned client-side actions (TTS, inject copy, HA status updates)
+        // Execute returned client-side actions (TTS, inject copy, HA status updates, timers, share, etc)
         if (data.client_actions && Array.isArray(data.client_actions)) {
           for (const action of data.client_actions) {
-            if (action.type === "speak") {
-              speakTTS(action.text);
-            } else if (action.type === "copy") {
-              try {
-                await navigator.clipboard.writeText(action.text);
-                addChatMessage("system", `Injected text (copied to clipboard): "${action.text}"`);
-                renderChatLog();
-              } catch (err) {
-                console.error(err);
-              }
-            } else if (action.type === "status") {
-              addChatMessage("system", action.detail);
-              renderChatLog();
-            }
+            await processClientAction(action);
           }
         }
         success = true;
@@ -2407,6 +2394,227 @@ function renderSuggestions(suggestions) {
     };
     grid.appendChild(card);
   });
+}
+
+// --- Client Operational Action Handlers & Active Timers Widget ---
+let activeTimers = [];
+
+function playTimerChime() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 784.00, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime + idx * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.15 + 0.4);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + idx * 0.15);
+      osc.stop(audioCtx.currentTime + idx * 0.15 + 0.45);
+    });
+  } catch (e) {
+    console.warn("Web Audio chime failed:", e);
+  }
+}
+
+function renderActiveTimers() {
+  const container = document.getElementById("active-timers-container");
+  if (!container) return;
+  
+  if (activeTimers.length === 0) {
+    container.classList.remove("has-timers");
+    container.innerHTML = "";
+    return;
+  }
+  
+  container.classList.add("has-timers");
+  container.innerHTML = "";
+
+  activeTimers.forEach(t => {
+    const chip = document.createElement("div");
+    chip.className = "timer-chip";
+
+    const mins = Math.floor(t.remainingSeconds / 60);
+    const secs = t.remainingSeconds % 60;
+    const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+    chip.innerHTML = `<span>⏱️ ${t.label}: <strong>${timeStr}</strong></span>`;
+    
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "timer-cancel-btn";
+    cancelBtn.textContent = "✖";
+    cancelBtn.title = "Cancel Timer";
+    cancelBtn.onclick = () => cancelTimer(t.id);
+    
+    chip.appendChild(cancelBtn);
+    container.appendChild(chip);
+  });
+}
+
+function cancelTimer(id) {
+  const idx = activeTimers.findIndex(t => t.id === id);
+  if (idx !== -1) {
+    clearInterval(activeTimers[idx].intervalId);
+    const label = activeTimers[idx].label;
+    activeTimers.splice(idx, 1);
+    renderActiveTimers();
+    addChatMessage("system", `⏱️ Cancelled timer: "${label}"`);
+    renderChatLog();
+  }
+}
+
+function handleSetTimer(seconds, label = "Timer") {
+  const sec = parseInt(seconds, 10) || 60;
+  const id = Date.now() + Math.random().toString(36).substr(2, 4);
+
+  const timerObj = {
+    id,
+    label,
+    totalSeconds: sec,
+    remainingSeconds: sec,
+    intervalId: null
+  };
+
+  timerObj.intervalId = setInterval(async () => {
+    timerObj.remainingSeconds--;
+    if (timerObj.remainingSeconds <= 0) {
+      clearInterval(timerObj.intervalId);
+      activeTimers = activeTimers.filter(t => t.id !== id);
+      renderActiveTimers();
+      
+      playTimerChime();
+      const endMsg = `⏱️ Timer finished: "${label}"!`;
+      await addChatMessage("system", endMsg);
+      renderChatLog();
+      speakCloudTTS(`Timer finished for ${label}`);
+    } else {
+      renderActiveTimers();
+    }
+  }, 1000);
+
+  activeTimers.push(timerObj);
+  renderActiveTimers();
+  addChatMessage("system", `⏱️ Started timer for ${label} (${sec}s)`);
+  renderChatLog();
+}
+
+function injectTextToEditor(text) {
+  const editor = document.getElementById("editor-box");
+  if (!editor) return;
+  const start = editor.selectionStart || editor.value.length;
+  const currentText = editor.value;
+  editor.value = currentText.substring(0, start) + text + currentText.substring(start);
+  editor.selectionStart = editor.selectionEnd = start + text.length;
+  updatePredictionsAndKeyboard();
+}
+
+async function handleWebShare(title, text, url) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      await addChatMessage("system", `🔗 Shared: "${title || text}"`);
+      renderChatLog();
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.warn("Web Share failed:", e);
+      }
+    }
+  } else {
+    const shareContent = [title, text, url].filter(Boolean).join("\n");
+    try {
+      await navigator.clipboard.writeText(shareContent);
+      await addChatMessage("system", `🔗 Copied share text to clipboard:\n${shareContent}`);
+      renderChatLog();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
+
+function handleExportFile(filename, content) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "export.txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  addChatMessage("system", `📁 Exported file: "${filename}"`);
+  renderChatLog();
+}
+
+async function processClientAction(action) {
+  if (!action) return;
+
+  if (action.type === "speak") {
+    speakCloudTTS(action.text);
+  } else if (action.type === "copy") {
+    const txt = action.text || "";
+    injectTextToEditor(txt);
+    try {
+      await navigator.clipboard.writeText(txt);
+      addChatMessage("system", `Injected text (copied to clipboard): "${txt}"`);
+      renderChatLog();
+    } catch (err) {
+      console.error(err);
+    }
+  } else if (action.type === "status") {
+    addChatMessage("system", action.detail);
+    renderChatLog();
+  } else if (action.type === "operation") {
+    const op = action.op_type;
+    const data = action.data || {};
+
+    if (op === "speak") {
+      const phrase = data.phrase || data.content || data.text || "";
+      if (phrase) speakCloudTTS(phrase);
+    } else if (op === "inject") {
+      const txt = data.text || data.content || "";
+      if (txt) {
+        injectTextToEditor(txt);
+        navigator.clipboard.writeText(txt).catch(() => {});
+        addChatMessage("system", `Injected text: "${txt}"`);
+        renderChatLog();
+      }
+    } else if (op === "share") {
+      handleWebShare(data.title || "K2 Share", data.text || data.content || "", data.url || "");
+    } else if (op === "email") {
+      const recipient = data.recipient || "";
+      const subject = data.subject || "";
+      const body = data.body || data.content || "";
+      const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(mailtoUrl, "_blank");
+      addChatMessage("system", `📧 Opened email draft to ${recipient || "recipient"}`);
+      renderChatLog();
+    } else if (op === "export_file") {
+      handleExportFile(data.filename || "export.txt", data.content || data.text || "");
+    } else if (op === "show_image") {
+      const imgUrl = data.url || "";
+      const caption = data.caption || data.content || "";
+      if (imgUrl) {
+        const imgHtml = `<div style="margin-top:8px;"><img src="${imgUrl}" alt="${caption}" style="max-width:100%; max-height:260px; border-radius:10px; border: 1px solid var(--glass-border); display:block;"/>${caption ? `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${caption}</div>` : ""}</div>`;
+        addChatMessage("cloud_ai", imgHtml);
+        renderChatLog();
+      }
+    } else if (op === "set_timer") {
+      handleSetTimer(data.seconds || 300, data.label || "Timer");
+    } else if (op === "set_alarm") {
+      const time = data.time || "";
+      const label = data.label || "Alarm";
+      addChatMessage("system", `⏰ Alarm set for ${time} (${label})`);
+      renderChatLog();
+    } else if (op === "set_reminder") {
+      const time = data.time || "";
+      const label = data.label || "Reminder";
+      addChatMessage("system", `🔔 Reminder set for ${time}: "${label}"`);
+      renderChatLog();
+    }
+  }
 }
 
 // --- Voice Synthesis Player ---
@@ -2734,6 +2942,7 @@ async function importConfiguration(file) {
 
 async function renderChatLog() {
   const log = document.getElementById("chat-log-scroll");
+  if (!log) return;
   log.innerHTML = "";
   const list = await getChatHistory();
   list.forEach(msg => {
@@ -2744,7 +2953,11 @@ async function renderChatLog() {
     if (msg.role === "user") prefix = "You: ";
     else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
 
-    div.textContent = `${prefix}${msg.content}`;
+    if (msg.content && (msg.content.startsWith("<div") || msg.content.startsWith("<img") || msg.content.startsWith("<span"))) {
+      div.innerHTML = `<span style="font-weight:600;">${prefix}</span> ${msg.content}`;
+    } else {
+      div.textContent = `${prefix}${msg.content}`;
+    }
     log.appendChild(div);
   });
   log.scrollTop = log.scrollHeight;
