@@ -51,8 +51,23 @@ class ChatRequest(BaseModel):
     user_message: str
     history: list[dict]
     profile_summary: str
+    contacts_summary: str = ""
+    settings_summary: str = ""
+    macros_summary: str = ""
+    app_manual: str = ""
     home_assistant_url: str = ""
     home_assistant_token: str = ""
+
+class ExtractMemoryRequest(BaseModel):
+    history: list[dict]
+    profile_summary: str = ""
+    contacts_summary: str = ""
+
+class ParseBulkFileRequest(BaseModel):
+    file_content: str
+    target_store: str = "profile"  # "profile" or "contacts"
+    mode: str = "replace"         # "replace" or "merge"
+    existing_context: str = ""
 
 class PhrasePredictionRequest(BaseModel):
     text_prefix: str
@@ -157,7 +172,7 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
             txt = attrs.get("text", "") or attrs.get("content", "")
             if txt:
                 inject_text(txt)
-        elif op_type in ["share", "email", "sms", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder"]:
+        elif op_type in ["share", "email", "sms", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder", "profile", "contact", "setting", "macro"]:
             client_actions.append({
                 "type": "operation",
                 "op_type": op_type,
@@ -169,21 +184,38 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
 
     # 2. Parse <suggestions>
     suggestions = []
-    action_tags = re.findall(r'<action\s+(.*?)>(.*?)</action>', text, re.DOTALL)
+    action_tags = re.findall(r'<action\s+(.*?)(?:>(.*?)</action>|/>)', text, re.DOTALL)
     for attrs, action_text in action_tags:
-        tag_match = re.search(r'tag=["\'](.*?)["\']', attrs)
-        tag = tag_match.group(1) if tag_match else ""
-        suggestions.append({
-            "tag": tag.strip()[:15],
-            "action_text": action_text.strip()
-        })
+        attr_dict = dict(re.findall(r'(\w+)=["\'](.*?)["\']', attrs))
+        tag = attr_dict.get("tag", "").strip()
+        act_text = action_text.strip() if action_text and action_text.strip() else attr_dict.get("description", "").strip()
+        if tag and act_text:
+            suggestions.append({
+                "tag": tag[:15],
+                "action_text": act_text
+            })
         
     clean_text = re.sub(r'<suggestions>.*?</suggestions>', '', clean_text, flags=re.DOTALL)
+    clean_text = re.sub(r'<action\s+.*?(?:>.*?</action>|/>)', '', clean_text, flags=re.DOTALL)
     # Clean up multi-blank lines and trailing whitespace
     clean_text = re.sub(r'\n{3,}', '\n\n', clean_text).strip()
     if not clean_text:
         clean_text = text.split("<suggestions>")[0].strip()
-        
+
+    # Fallback: Auto-extract 1, 2, 3 options directly from question text if XML block was omitted
+    if not suggestions:
+        match = re.search(r'(?:Do|Would) you (?:want|like) me to:\s*1\.\s*(.*?),\s*2\.\s*(.*?),\s*(?:or\s*)?3\.\s*(.*?)(?:\?|$)', clean_text, re.IGNORECASE | re.DOTALL)
+        if match:
+            for choice in match.groups():
+                c_text = choice.strip()
+                if c_text.lower().startswith("or "):
+                    c_text = c_text[3:].strip()
+                tag = c_text.title().replace("A New ", " ").replace("An Existing ", " ").replace("All My Current ", " ").replace("  ", " ").strip()[:15]
+                suggestions.append({
+                    "tag": tag or c_text[:15],
+                    "action_text": c_text
+                })
+
     if not suggestions:
         suggestions = [
             {"tag": "Say Thanks", "action_text": "Say Thank you!"},
@@ -243,7 +275,18 @@ def chat(request: ChatRequest):
             "  8. Display Image: <operation type=\"show_image\" url=\"...\" caption=\"...\"/>\n"
             "  9. Set Timer: <operation type=\"set_timer\" seconds=\"300\" label=\"Tea timer\"/>\n"
             " 10. Set Alarm: <operation type=\"set_alarm\" time=\"07:30\" label=\"Morning alarm\"/>\n"
-            " 11. Set Reminder: <operation type=\"set_reminder\" time=\"15:00\" label=\"Call Pete\"/>\n\n"
+            " 11. Set Reminder: <operation type=\"set_reminder\" time=\"15:00\" label=\"Call Pete\"/>\n"
+            " 12. Profile Store: <operation type=\"profile\" action=\"add|set|update|delete\" key=\"Category\" content=\"Text\" old_content=\"...\"/>\n"
+            " 13. Contact Store: <operation type=\"contact\" action=\"add|set|update|delete\" key=\"ContactName\" content=\"phone=...; email=...\" old_content=\"...\"/>\n"
+            " 14. Setting Store: <operation type=\"setting\" action=\"set\" key=\"SettingKey\" content=\"Value\"/>\n"
+            " 15. Macro Store: <operation type=\"macro\" action=\"add|set|update|delete\" key=\"TagLabel\" content=\"Text\" old_content=\"...\"/>\n\n"
+            "UNIFIED DICTIONARY SPECIFICATION:\n"
+            "All state stores (profile, contact, setting, macro) follow identical key-value dictionary rules:\n"
+            "- action=\"add\": key=K, content=C -> Adds key K with value C, or appends C to key K if K exists.\n"
+            "- action=\"set\": key=K, content=C -> Overwrites key K with exact value C.\n"
+            "- action=\"delete\" (no old_content): key=K -> Removes key K entirely.\n"
+            "- action=\"delete\" (with old_content): key=K, old_content=O -> Removes specific item/field O from key K.\n"
+            "- action=\"update\": key=K, old_content=O, content=C -> Replaces specific item/field O with C in key K.\n\n"
             "SUGGESTIONS:\n"
             "At the end of EVERY response, regardless of topic or response length, you MUST append a list of exactly three relevant suggested actions "
             "that Kay might want to take next, wrapped in a <suggestions> XML block.\n"
@@ -264,9 +307,21 @@ def chat(request: ChatRequest):
             "</suggestions>"
         )
 
+        total_history_count = len(sdk_history)
+        user_msgs_count = sum(1 for m in request.history if m.get("role") == "user")
+        ai_msgs_count = sum(1 for m in request.history if m.get("role") in ["cloud_ai", "model"])
+        history_stats = f"Total messages in context window: {total_history_count} ({user_msgs_count} user messages, {ai_msgs_count} Cloud AI replies)."
+
         user_prompt = (
-            f"Context details:\n{request.profile_summary}\n\n"
-            f"User message: {request.user_message}"
+            f"SYSTEM CONTEXT DETAILS:\n"
+            f"[PROFILE SUMMARY]\n{request.profile_summary}\n\n"
+            f"[CONTACTS DIRECTORY]\n{request.contacts_summary}\n\n"
+            f"[APP SETTINGS]\n{request.settings_summary}\n\n"
+            f"[SAVED MACROS]\n{request.macros_summary}\n\n"
+            f"[CHAT HISTORY STATS]\n{history_stats}\n\n"
+            f"[APP MANUAL & HELP]\n{request.app_manual}\n\n"
+            f"User message: {request.user_message}\n\n"
+            f"(MANDATORY FORMATTING INSTRUCTION: End your answer with 'Do you want me to: 1. ..., 2. ..., or 3. ...?' followed immediately by the mandatory <suggestions> XML block containing exactly 3 <action> tags)."
         )
 
         # Create chat session with native Google Search and Code Execution tools
@@ -451,7 +506,8 @@ def predict_phrases(request: PhrasePredictionRequest):
         phrases = [p.strip() for p in raw_text.split(",") if p.strip()]
         return {"phrases": phrases[:3]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("Phrase prediction warning:", e)
+        return {"phrases": ["how are you", "i need to", "can you help"]}
 
 @app.post("/api/transcribe")
 def transcribe(file: UploadFile = File(...)):
@@ -638,6 +694,158 @@ def compile_profile(profile_text: str = Form(...)):
         return parsed_json
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/extract-memory")
+def extract_memory(request: ExtractMemoryRequest):
+    if not GEMINI_API_KEY or not client:
+        return {"client_actions": [], "message": "Gemini API key not configured"}
+        
+    try:
+        # Build history string from recent transcript
+        recent_turns = request.history[-6:]
+        transcript = ""
+        for turn in recent_turns:
+            role = "User" if turn.get("role") == "user" else "Assistant"
+            transcript += f"{role}: {turn.get('content', '')}\n"
+
+        prompt = (
+            "You are an auxiliary memory extraction worker for K2. "
+            "Analyze the conversation transcript below. If new facts, relationships, medical needs, or contact details were introduced that are NOT already in the profile or contacts summary, emit the appropriate XML operation tag(s):\n\n"
+            "UNIFIED DICTIONARY OPERATIONAL SPECIFICATIONS:\n"
+            "1. Profile Add: <operation type=\"profile\" action=\"add\" key=\"Category\" content=\"Text\"/>\n"
+            "2. Profile Update: <operation type=\"profile\" action=\"update\" key=\"Category\" old_content=\"OldText\" content=\"NewText\"/>\n"
+            "3. Profile Delete: <operation type=\"profile\" action=\"delete\" key=\"Category\" old_content=\"TextToRemove\"/>\n"
+            "4. Contact Add: <operation type=\"contact\" action=\"add\" key=\"ContactName\" content=\"phone=...; email=...; relationship=...\"/>\n"
+            "5. Contact Update: <operation type=\"contact\" action=\"update\" key=\"ContactName\" old_content=\"phone=old\" content=\"phone=new\"/>\n"
+            "6. Contact Delete: <operation type=\"contact\" action=\"delete\" key=\"ContactName\" old_content=\"field=val\"/>\n\n"
+            f"CURRENT PROFILE SUMMARY:\n{request.profile_summary}\n\n"
+            f"CURRENT CONTACTS DIRECTORY:\n{request.contacts_summary}\n\n"
+            f"RECENT CONVERSATION TRANSCRIPT:\n{transcript}\n\n"
+            "If no new persistent facts or contacts were introduced, output EXACTLY 'NO_NEW_FACTS'."
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
+        raw_reply = response.text.strip() if response.text else ""
+        client_actions = []
+        if raw_reply and "NO_NEW_FACTS" not in raw_reply:
+            parse_operations_and_suggestions(raw_reply, client_actions)
+
+        return {"client_actions": client_actions, "raw": raw_reply}
+    except Exception as e:
+        print("Memory extraction error:", e)
+        return {"client_actions": [], "error": str(e)}
+
+class ProfileCategoryItem(BaseModel):
+    category: str
+    content: str
+
+class ContactItem(BaseModel):
+    name: str
+    value: str
+
+def parse_csv_contacts(file_text: str) -> list[dict]:
+    import csv
+    import io
+    items = []
+    try:
+        f = io.StringIO(file_text)
+        reader = csv.DictReader(f)
+        for row in reader:
+            if not row:
+                continue
+            first = (row.get("First Name") or row.get("Given Name") or "").strip()
+            middle = (row.get("Middle Name") or "").strip()
+            last = (row.get("Last Name") or row.get("Family Name") or "").strip()
+            org = (row.get("Organization Name") or row.get("Company") or "").strip()
+            file_as = (row.get("File As") or row.get("Name") or "").strip()
+
+            name_parts = [p for p in [first, middle, last] if p]
+            name = " ".join(name_parts) if name_parts else (org or file_as)
+            if not name:
+                continue
+
+            fields = []
+            for i in range(1, 6):
+                email = (row.get(f"E-mail {i} - Value") or row.get(f"Email {i}") or (row.get("Email") if i == 1 else "") or "").strip()
+                if email and f"email={email}" not in fields:
+                    fields.append(f"email={email}")
+
+            for i in range(1, 6):
+                phone = (row.get(f"Phone {i} - Value") or row.get(f"Phone {i}") or (row.get("Phone") if i == 1 else "") or "").strip()
+                if phone and f"phone={phone}" not in fields:
+                    fields.append(f"phone={phone}")
+
+            rel_val = (row.get("Relation 1 - Value") or row.get("Relationship") or "").strip()
+            rel_label = (row.get("Relation 1 - Label") or "").strip()
+            if rel_val:
+                fields.append(f"relationship={rel_label or 'Relation'}: {rel_val}")
+
+            notes = (row.get("Notes") or "").replace("\n", " ").strip()
+            if notes:
+                fields.append(f"notes={notes[:200]}")
+
+            val_str = "; ".join(fields)
+            if val_str:
+                items.append({"name": name, "value": val_str})
+    except Exception as e:
+        print("CSV parse helper notice:", e)
+    return items
+
+@app.post("/api/parse-bulk-file")
+def parse_bulk_file(request: ParseBulkFileRequest):
+    if not GEMINI_API_KEY or not client:
+        raise HTTPException(status_code=400, detail="Gemini API key not configured")
+        
+    try:
+        import json
+        if request.target_store == "contacts":
+            # Fast-path instant CSV parser for structured contact exports
+            if "First Name" in request.file_content or "E-mail" in request.file_content or "Phone 1" in request.file_content:
+                csv_items = parse_csv_contacts(request.file_content)
+                if csv_items:
+                    return {"items": csv_items}
+
+            sys_inst = (
+                "You are a structured contact file parser. Parse the provided text, CSV, or vCard file into a JSON list of contacts.\n"
+                "Defer directly to the headers, keys, or vCard labels in the file (Name, Phone, Mobile, Email, Relationship, Notes)."
+            )
+            if request.mode == "merge" and request.existing_context.strip():
+                sys_inst += (
+                    f"\n\nEXISTING STORED CONTACTS:\n{request.existing_context}\n"
+                    "If a contact in the file matches an existing contact, merge and update their fields intelligently without creating duplicate contact records."
+                )
+            target_schema = list[ContactItem]
+        else:
+            sys_inst = (
+                "You are a structured profile compiler. Parse the provided text file into a JSON list of profile categories.\n"
+                "Preferred categories: [\"User Info\", \"Relationships\", \"Interests\", \"Schedule\", \"Smart Home Setup\", \"Medical Preferences\"]."
+            )
+            if request.mode == "merge" and request.existing_context.strip():
+                sys_inst += (
+                    f"\n\nEXISTING STORED PROFILE:\n{request.existing_context}\n"
+                    "Merge new facts into existing categories or update existing facts without repeating identical lines."
+                )
+            target_schema = list[ProfileCategoryItem]
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"Parse the following file text:\n\n{request.file_content}",
+            config=types.GenerateContentConfig(
+                system_instruction=sys_inst,
+                response_mime_type="application/json",
+                response_schema=target_schema
+            )
+        )
+
+        parsed_items = json.loads(response.text.strip())
+        return {"items": parsed_items}
+    except Exception as e:
+        print("Bulk file parsing error:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 # Mount static frontend directory (must be defined last so API routes take precedence)

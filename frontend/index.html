@@ -163,9 +163,9 @@
       
       <div class="settings-form">
         <div class="form-group">
-          <label for="biography-text">Personal Biography (Free-Form Notes):</label>
-          <textarea id="biography-text" placeholder="Write biography facts, relationships, interests, routines here..."></textarea>
-          <button id="btn-compile" class="btn btn-teal" style="margin-top: 5px; width: 100%;">Update profile from text file</button>
+          <label for="biography-text">Personal Profile (Free-Form Notes):</label>
+          <textarea id="biography-text" placeholder="Write profile facts, relationships, interests, routines here..."></textarea>
+          <button id="btn-compile" class="btn btn-teal" style="margin-top: 5px; width: 100%;">Compile Profile from Text</button>
           <input type="file" id="profile-file-input" style="display: none;" accept=".txt">
         </div>
 
@@ -257,6 +257,16 @@
           </select>
         </div>
 
+        <div class="form-group backup-restore-buttons" style="flex-direction: column; gap: 8px;">
+          <label style="font-weight: 600;">Data Import & Memory Sync:</label>
+          <div style="display: flex; gap: 8px;">
+            <button id="btn-import-profile-file" class="btn btn-teal" style="flex: 1;">📁 Import Profile File</button>
+            <button id="btn-import-contacts-file" class="btn btn-teal" style="flex: 1;">📇 Import Contacts File</button>
+          </div>
+          <button id="btn-sync-memory" class="btn btn-primary" style="width: 100%;">🧠 Sync Memory Now</button>
+          <input type="file" id="contacts-file-input" style="display: none;" accept=".txt,.csv,.vcf,.json">
+        </div>
+
         <div class="form-group backup-restore-buttons">
           <button id="btn-export-config" class="btn btn-primary">Export Configuration (JSON)</button>
           <button id="btn-import-config" class="btn btn-warning">Import Configuration (JSON)</button>
@@ -270,6 +280,19 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <!-- Import Mode Selection Modal -->
+  <div class="modal-overlay" id="import-mode-modal" style="display:none; z-index: 10000;">
+    <div class="modal-content" style="max-width: 420px; text-align: center;">
+      <h3 id="import-mode-title">Import Data</h3>
+      <p style="font-size: 14px; color: var(--text-muted); margin: 12px 0;">How would you like to apply the imported file?</p>
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 16px;">
+        <button id="btn-mode-replace" class="btn btn-warning" style="flex: 1;">Replace Existing</button>
+        <button id="btn-mode-merge" class="btn btn-teal" style="flex: 1;">Merge with Existing</button>
+      </div>
+      <button id="btn-mode-cancel" class="btn btn-secondary" style="margin-top: 12px; width: 100%;">Cancel</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=15"></script>
 </body>
 </html>

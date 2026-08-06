@@ -538,6 +538,11 @@ let activePhrasesAbortController = null;
 
 let originalBiographyText = "";
 
+let pendingImportFile = null;
+let pendingImportType = null;
+let pendingImportText = null;
+let currentSuggestions = [];
+
 // Cached settings object to avoid async db reads in rendering loops
 let settings = {
   font_size_editor: 32,
@@ -555,6 +560,55 @@ let settings = {
   auto_hide_k2_keyboard: 0
 };
 
+function syncSettingsModalUI() {
+  const fontEdEl = document.getElementById("font-editor");
+  if (fontEdEl) fontEdEl.value = settings.font_size_editor || 32;
+
+  const fontKyEl = document.getElementById("font-keyboard");
+  if (fontKyEl) fontKyEl.value = settings.font_size_keyboard || 24;
+
+  const minWEl = document.getElementById("min-target-width");
+  if (minWEl) minWEl.value = settings.min_target_width || 50;
+
+  const minHEl = document.getElementById("min-target-height");
+  if (minHEl) minHEl.value = settings.min_target_height || 40;
+
+  const gapXEl = document.getElementById("button-gap-x");
+  if (gapXEl) gapXEl.value = settings.button_gap_x || 4;
+
+  const gapYEl = document.getElementById("button-gap-y");
+  if (gapYEl) gapYEl.value = settings.button_gap_y || 4;
+
+  const basinsEl = document.getElementById("basins-of-attraction-toggle");
+  if (basinsEl) basinsEl.checked = settings.basins_of_attraction === 1;
+
+  const useOSEl = document.getElementById("use-os-keyboard-toggle");
+  if (useOSEl) useOSEl.checked = settings.use_os_keyboard === 1;
+
+  const autoHideEl = document.getElementById("auto-hide-k2-keyboard-toggle");
+  if (autoHideEl) autoHideEl.checked = settings.auto_hide_k2_keyboard === 1;
+
+  const haUrlEl = document.getElementById("ha-url-input");
+  if (haUrlEl) haUrlEl.value = settings.home_assistant_url || "";
+
+  const haTokEl = document.getElementById("ha-token-input");
+  if (haTokEl) haTokEl.value = settings.home_assistant_token || "";
+
+  const bioEl = document.getElementById("biography-text");
+  if (bioEl && settings.biography_text) bioEl.value = settings.biography_text;
+
+  const hoverBEl = document.getElementById("hover-brightness");
+  if (hoverBEl) hoverBEl.value = settings.hover_brightness || 1.2;
+
+  const localVEl = document.getElementById("local-tts-voice-select");
+  if (localVEl && settings.local_tts_voice) localVEl.value = settings.local_tts_voice;
+
+  const elevenVEl = document.getElementById("elevenlabs-voice-select");
+  if (elevenVEl && settings.elevenlabs_voice) elevenVEl.value = settings.elevenlabs_voice;
+
+  updateSettingsVisibility();
+}
+
 // Macro state tracking
 let loadedActionTag = null;
 
@@ -563,7 +617,26 @@ let lastApiPredictions = [];
 
 // --- IndexedDB Setup ---
 const DB_NAME = "k2_web_db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+
+const APP_MANUAL = `K2 Assistive Web System Capabilities & Manual:
+1. Gaze & Assistive Input: Supports gaze typing, dwell-click selection, predictive text completion, and action macros.
+2. Eye-Tracking Settings:
+   - font_size_editor (px): Editor font size.
+   - font_size_keyboard (px): On-screen keyboard button font size.
+   - min_target_width (px) & min_target_height (px): Target button sizing.
+   - hover_brightness: Target brightness multiplier on hover.
+3. System Operations (XML tags emitted by Cloud AI):
+   - <operation type="profile" action="add|set|update|delete" key="..." content="..." [old_content="..."]/>
+   - <operation type="contact" action="add|set|update|delete" key="..." content="..." [old_content="..."]/>
+   - <operation type="setting" action="set" key="..." content="..."/>
+   - <operation type="macro" action="add|set|update|delete" key="..." content="..." [old_content="..."]/>
+   - <operation type="sms" recipient="..." message="..."/>
+   - <operation type="email" recipient="..." subject="..." body="..."/>
+   - <operation type="home_assistant" service="..." entity_id="..."/>
+   - <operation type="speak" phrase="..."/>
+   - <operation type="set_timer" seconds="..." label="..."/>
+`;
 
 function initDatabase() {
   return new Promise((resolve, reject) => {
@@ -582,6 +655,9 @@ function initDatabase() {
       }
       if (!db.objectStoreNames.contains("personal_summary")) {
         db.createObjectStore("personal_summary", { keyPath: "category" });
+      }
+      if (!db.objectStoreNames.contains("contacts")) {
+        db.createObjectStore("contacts", { keyPath: "name" });
       }
     };
 
@@ -661,7 +737,10 @@ function addChatMessage(role, content) {
     const txn = db.transaction("chat_history", "readwrite");
     const store = txn.objectStore("chat_history");
     store.add({ role, content, timestamp: new Date().toISOString() });
-    txn.oncomplete = () => resolve();
+    txn.oncomplete = () => {
+      renderSingleChatMessage({ role, content });
+      resolve();
+    };
   });
 }
 
@@ -686,6 +765,57 @@ function setPersonalSummary(categories) {
   });
 }
 
+function getContacts() {
+  return new Promise((resolve) => {
+    if (!db || !db.objectStoreNames.contains("contacts")) return resolve([]);
+    const txn = db.transaction("contacts", "readonly");
+    const store = txn.objectStore("contacts");
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
+function saveContact(name, value) {
+  return new Promise((resolve) => {
+    const txn = db.transaction("contacts", "readwrite");
+    const store = txn.objectStore("contacts");
+    store.put({ name, value, timestamp: Date.now() });
+    txn.oncomplete = () => resolve();
+  });
+}
+
+function deleteContact(name) {
+  return new Promise((resolve) => {
+    const txn = db.transaction("contacts", "readwrite");
+    const store = txn.objectStore("contacts");
+    store.delete(name);
+    txn.oncomplete = () => resolve();
+  });
+}
+
+function setContacts(contactsList) {
+  return new Promise((resolve) => {
+    const txn = db.transaction("contacts", "readwrite");
+    const store = txn.objectStore("contacts");
+    store.clear();
+    for (const item of contactsList) {
+      if (item.name) store.put(item);
+    }
+    txn.oncomplete = () => resolve();
+  });
+}
+
+function getAllSettings() {
+  return new Promise((resolve) => {
+    const txn = db.transaction("settings", "readonly");
+    const store = txn.objectStore("settings");
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+}
+
 async function seedDefaults() {
   const seeded = await getSetting("font_size_editor");
   if (!seeded) {
@@ -702,6 +832,9 @@ async function seedDefaults() {
       { category: "Relationships", content: "Husband: Pete. Family lives nearby and visits frequently." },
       { category: "Interests", content: "Plants, nature, trolls, mixology." }
     ]);
+
+    await saveContact("Phil", "phone=555-0199; email=phil@example.com; relationship=Husband");
+    await saveContact("Dr. Smith", "phone=555-4321; email=smith@clinic.org; relationship=Dentist");
 
     await saveAction("[laughing]", "[laughing] ");
     await saveAction("Pete", "Pete ");
@@ -1043,7 +1176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupHorizontalDwellScrolling("actions-header-controls");
 
   renderSavedActions();
-  renderChatLog();
+  renderChatLog(true);
   updatePredictionsAndKeyboard();
 
   // OS and Auto-Hide Keyboard UI Bindings
@@ -1550,6 +1683,7 @@ function setupUIBindings() {
 
   // Settings Modal controls
   document.getElementById("btn-settings").addEventListener("click", () => {
+    syncSettingsModalUI();
     originalBiographyText = document.getElementById("biography-text").value;
     document.getElementById("settings-modal").style.display = "flex";
   });
@@ -1599,8 +1733,6 @@ function setupUIBindings() {
       const timestamp = new Date().toISOString();
       await setSetting("biography_text_timestamp", timestamp);
       originalBiographyText = bioText;
-      // Compile biography into categories using Gemini 3.5 Flash
-      executeCompileProfileFromString(bioText);
     }
 
     // Update global settings cache
@@ -1634,19 +1766,6 @@ function setupUIBindings() {
     document.getElementById("settings-modal").style.display = "none";
   });
 
-  // Profile File Picker - reads text file and copies it to Settings biography text area
-  const profileFileInput = document.getElementById("profile-file-input");
-  document.getElementById("btn-compile").addEventListener("click", () => profileFileInput.click());
-  profileFileInput.addEventListener("change", (e) => {
-    if (e.target.files.length) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        document.getElementById("biography-text").value = evt.target.result;
-        profileFileInput.value = ""; // Clear file input
-      };
-      reader.readAsText(e.target.files[0]);
-    }
-  });
 
   // Backup & Import Bindings
   document.getElementById("btn-export-config").addEventListener("click", exportConfiguration);
@@ -2286,13 +2405,29 @@ async function executeSendCloud() {
   const history = await getChatHistory();
   const summaryList = await getPersonalSummary();
   const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
+  const contactsList = await getContacts();
+  const contacts_summary = contactsList.map(c => `${c.name}: ${c.value}`).join("\n");
+
+  const actionsList = await getSavedActions();
+  let macrosLines = actionsList.map(a => `Saved Macro Button [${a.tag}]: "${a.action_text}"`);
+  if (currentSuggestions && currentSuggestions.length > 0) {
+    currentSuggestions.forEach(s => {
+      macrosLines.push(`Temporary Suggested Action [${s.tag}]: "${s.action_text}"`);
+    });
+  }
+  const macros_summary = macrosLines.join("\n");
+
+  const settingsList = await getAllSettings();
+  const settings_summary = settingsList.map(s => `${s.key}: ${s.value}`).join("\n");
+
+  const app_manual = "K2 is an assistive web application designed for ALS communication. Features include: virtual QWERTY keyboard with character & word predictions, text-to-speech (@CloudTTS / @LocalTTS), custom macro buttons, Home Assistant integration, active timers/alarms/reminders, web sharing, SMS/email drafting, and personal profile/contacts memory management.";
 
   const haUrl = await getSetting("home_assistant_url", "");
   const haToken = await getSetting("home_assistant_token", "");
 
   const maxAttempts = 3;
   let lastErrorMsg = "Unknown network error";
-  let success = false;
+  let responseData = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) {
@@ -2312,6 +2447,10 @@ async function executeSendCloud() {
           user_message: text,
           history,
           profile_summary,
+          contacts_summary,
+          settings_summary,
+          macros_summary,
+          app_manual,
           home_assistant_url: haUrl,
           home_assistant_token: haToken
         }),
@@ -2331,21 +2470,9 @@ async function executeSendCloud() {
 
       const data = await res.json();
       if (data.reply) {
-        if (thinkingDiv.parentNode) {
-          thinkingDiv.remove();
-        }
-        await addChatMessage("cloud_ai", data.reply);
-        renderChatLog();
-        renderSuggestions(data.suggestions);
-
-        // Execute returned client-side actions (TTS, inject copy, HA status updates, timers, share, etc)
-        if (data.client_actions && Array.isArray(data.client_actions)) {
-          for (const action of data.client_actions) {
-            await processClientAction(action);
-          }
-        }
+        responseData = data;
         success = true;
-        break; // Successfully received response!
+        break; // Successfully received HTTP 200 response payload!
       } else if (data.error) {
         throw new Error(data.error);
       } else {
@@ -2362,16 +2489,33 @@ async function executeSendCloud() {
     }
   }
 
-  if (!success) {
-    if (thinkingDiv.parentNode) {
-      thinkingDiv.remove();
+  if (thinkingDiv.parentNode) {
+    thinkingDiv.remove();
+  }
+
+  if (success && responseData) {
+    await addChatMessage("cloud_ai", responseData.reply);
+    renderChatLog();
+    renderSuggestions(responseData.suggestions);
+
+    // Execute returned client-side actions safely outside retry loop
+    if (responseData.client_actions && Array.isArray(responseData.client_actions)) {
+      for (const action of responseData.client_actions) {
+        try {
+          await processClientAction(action);
+        } catch (actErr) {
+          console.error("Error executing client action:", actErr);
+        }
+      }
     }
+  } else {
     addChatMessage("system", `⚠️ Cloud AI could not connect after ${maxAttempts} attempts: ${lastErrorMsg}. Please try sending again.`);
     renderChatLog();
   }
 }
 
 function renderSuggestions(suggestions) {
+  currentSuggestions = suggestions || [];
   // Renders suggestions inline inside actions grid
   const grid = document.getElementById("actions-grid");
 
@@ -2627,6 +2771,137 @@ async function processClientAction(action) {
       const label = data.label || "Reminder";
       addChatMessage("system", `🔔 Reminder set for ${time}: "${label}"`);
       renderChatLog();
+    } else if (op === "profile" || op === "contact" || op === "setting" || op === "macro") {
+      const act = (data.action || "add").toLowerCase();
+      const key = data.key || data.category || data.name || data.tag || "";
+      const content = data.content || data.value || data.text || "";
+      const oldContent = data.old_content || data.target_content || data.old_value || "";
+
+      if (!key) return;
+
+      if (op === "profile") {
+        const currentList = await getPersonalSummary();
+        let existing = currentList.find(i => i.category.toLowerCase() === key.toLowerCase());
+
+        if (act === "add") {
+          if (!existing) {
+            currentList.push({ category: key, content });
+          } else {
+            existing.content = existing.content ? `${existing.content}. ${content}` : content;
+          }
+        } else if (act === "set") {
+          if (existing) {
+            existing.content = content;
+          } else {
+            currentList.push({ category: key, content });
+          }
+        } else if (act === "delete") {
+          if (!oldContent) {
+            const idx = currentList.findIndex(i => i.category.toLowerCase() === key.toLowerCase());
+            if (idx !== -1) currentList.splice(idx, 1);
+          } else if (existing && existing.content) {
+            existing.content = existing.content.replace(oldContent, "").replace(/\s{2,}/g, " ").trim();
+          }
+        } else if (act === "update") {
+          if (existing && existing.content && oldContent) {
+            existing.content = existing.content.replace(oldContent, content);
+          }
+        }
+        await setPersonalSummary(currentList);
+        await addChatMessage("system", `👤 Updated Profile [${key}]`);
+        renderChatLog();
+
+      } else if (op === "contact") {
+        const currentContacts = await getContacts();
+        let existing = currentContacts.find(c => c.name.toLowerCase() === key.toLowerCase());
+
+        if (act === "add") {
+          if (!existing) {
+            await saveContact(key, content);
+          } else {
+            existing.value = existing.value ? `${existing.value}; ${content}` : content;
+            await saveContact(existing.name, existing.value);
+          }
+        } else if (act === "set") {
+          await saveContact(key, content);
+        } else if (act === "delete") {
+          if (!oldContent) {
+            await deleteContact(key);
+          } else if (existing && existing.value) {
+            existing.value = existing.value.replace(oldContent, "").replace(/;\s*;/g, ";").trim();
+            await saveContact(existing.name, existing.value);
+          }
+        } else if (act === "update") {
+          if (existing && existing.value && oldContent) {
+            existing.value = existing.value.replace(oldContent, content);
+            await saveContact(existing.name, existing.value);
+          }
+        }
+        await addChatMessage("system", `📇 Updated Contact [${key}]`);
+        renderChatLog();
+
+      } else if (op === "setting") {
+        let normKey = key.toLowerCase().replace(/-/g, "_");
+        if (normKey.includes("auto_hide") || normKey.includes("autohide")) {
+          normKey = "auto_hide_k2_keyboard";
+        } else if (normKey.includes("os_keyboard") || normKey.includes("oskeyboard")) {
+          normKey = "use_os_keyboard";
+        } else if (normKey.includes("basin") || normKey.includes("attraction")) {
+          normKey = "basins_of_attraction";
+        } else if (normKey.includes("editor_font") || normKey.includes("font_editor")) {
+          normKey = "font_size_editor";
+        } else if (normKey.includes("keyboard_font") || normKey.includes("font_keyboard")) {
+          normKey = "font_size_keyboard";
+        }
+
+        let normVal = String(content).trim();
+        if (["1", "true", "on", "enable", "enabled", "yes"].includes(normVal.toLowerCase())) {
+          normVal = "1";
+        } else if (["0", "false", "off", "disable", "disabled", "no"].includes(normVal.toLowerCase())) {
+          normVal = "0";
+        }
+
+        await setSetting(normKey, normVal);
+
+        // Update global settings cache object
+        if (["font_size_editor", "font_size_keyboard", "min_target_width", "min_target_height", "button_gap_x", "button_gap_y", "basins_of_attraction", "use_os_keyboard", "auto_hide_k2_keyboard"].includes(normKey)) {
+          settings[normKey] = parseInt(normVal, 10) || 0;
+        } else if (normKey === "hover_brightness") {
+          settings[normKey] = parseFloat(normVal) || 1.2;
+        } else {
+          settings[normKey] = normVal;
+        }
+
+        // Apply setting side-effects immediately
+        if (normKey === "font_size_editor") {
+          const editor = document.getElementById("editor-box");
+          if (editor) editor.style.fontSize = `${settings.font_size_editor}px`;
+        } else if (normKey === "auto_hide_k2_keyboard" || normKey === "use_os_keyboard") {
+          applyKeyboardSettings();
+        } else if (normKey === "hover_brightness") {
+          document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
+        } else if (normKey === "min_target_height") {
+          document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
+        } else if (normKey === "min_target_width") {
+          document.documentElement.style.setProperty("--min-target-width", `${settings.min_target_width}px`);
+        }
+
+        syncSettingsModalUI();
+
+        await addChatMessage("system", `⚙️ Changed Setting: ${normKey} = "${normVal}"`);
+        renderChatLog();
+
+      } else if (op === "macro") {
+        if (act === "add" || act === "set") {
+          await saveAction(key, content);
+          await addChatMessage("system", `⚡ Saved Macro Button [${key}]`);
+        } else if (act === "delete") {
+          await deleteAction(key);
+          await addChatMessage("system", `⚡ Deleted Macro Button [${key}]`);
+        }
+        renderSavedActions();
+        renderChatLog();
+      }
     }
   }
 }
@@ -2892,17 +3167,22 @@ async function executeCompileProfileFromString(text) {
 
 // --- Backup Export / Import Configuration Operations ---
 async function exportConfiguration() {
-  const txn = db.transaction(["settings", "saved_actions", "personal_summary", "chat_history"], "readonly");
+  const storeNames = ["settings", "saved_actions", "personal_summary", "chat_history"];
+  if (db.objectStoreNames.contains("contacts")) storeNames.push("contacts");
+
+  const txn = db.transaction(storeNames, "readonly");
   const settingsReq = txn.objectStore("settings").getAll();
   const actionsReq = txn.objectStore("saved_actions").getAll();
   const summaryReq = txn.objectStore("personal_summary").getAll();
   const chatReq = txn.objectStore("chat_history").getAll();
+  const contactsReq = db.objectStoreNames.contains("contacts") ? txn.objectStore("contacts").getAll() : null;
 
   txn.oncomplete = () => {
     const data = {
       settings: settingsReq.result,
       saved_actions: actionsReq.result,
       personal_summary: summaryReq.result,
+      contacts: contactsReq ? contactsReq.result : [],
       chat_history: chatReq.result
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -2920,7 +3200,10 @@ async function importConfiguration(file) {
   reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      const txn = db.transaction(["settings", "saved_actions", "personal_summary", "chat_history"], "readwrite");
+      const storeNames = ["settings", "saved_actions", "personal_summary", "chat_history"];
+      if (db.objectStoreNames.contains("contacts")) storeNames.push("contacts");
+
+      const txn = db.transaction(storeNames, "readwrite");
 
       if (data.settings) {
         const store = txn.objectStore("settings");
@@ -2936,6 +3219,11 @@ async function importConfiguration(file) {
         const store = txn.objectStore("personal_summary");
         store.clear();
         data.personal_summary.forEach(item => store.put(item));
+      }
+      if (data.contacts && db.objectStoreNames.contains("contacts")) {
+        const store = txn.objectStore("contacts");
+        store.clear();
+        data.contacts.forEach(item => store.put(item));
       }
       if (data.chat_history) {
         const store = txn.objectStore("chat_history");
@@ -2954,25 +3242,312 @@ async function importConfiguration(file) {
   reader.readAsText(file);
 }
 
-async function renderChatLog() {
+function renderSingleChatMessage(msg) {
   const log = document.getElementById("chat-log-scroll");
   if (!log) return;
-  log.innerHTML = "";
-  const list = await getChatHistory();
-  list.forEach(msg => {
-    const div = document.createElement("div");
-    div.className = `chat-message ${msg.role}`;
 
-    let prefix = "System: ";
-    if (msg.role === "user") prefix = "You: ";
-    else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
+  const div = document.createElement("div");
+  div.className = `chat-message ${msg.role}`;
 
-    if (msg.content && (msg.content.startsWith("<div") || msg.content.startsWith("<img") || msg.content.startsWith("<span"))) {
-      div.innerHTML = `<span style="font-weight:600;">${prefix}</span> ${msg.content}`;
-    } else {
-      div.textContent = `${prefix}${msg.content}`;
-    }
+  let prefix = "System: ";
+  if (msg.role === "user") prefix = "You: ";
+  else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
+
+  if (msg.content && (msg.content.startsWith("<div") || msg.content.startsWith("<img") || msg.content.startsWith("<span"))) {
+    div.innerHTML = `<span style="font-weight:600;">${prefix}</span> ${msg.content}`;
+  } else {
+    div.textContent = `${prefix}${msg.content}`;
+  }
+
+  // Insert before thinking div if present, otherwise append to end
+  const thinkingDiv = log.querySelector(".thinking");
+  if (thinkingDiv) {
+    log.insertBefore(div, thinkingDiv);
+  } else {
     log.appendChild(div);
-  });
-  log.scrollTop = log.scrollHeight;
+  }
+
+  log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
 }
+
+async function renderChatLog(force = false) {
+  const log = document.getElementById("chat-log-scroll");
+  if (!log) return;
+
+  // Only perform a full DOM clear/rebuild if explicitly forced (e.g. initial load or history import)
+  // or if the chat log container is currently empty.
+  if (force || log.children.length === 0) {
+    log.innerHTML = "";
+    const list = await getChatHistory();
+    list.forEach(msg => {
+      const div = document.createElement("div");
+      div.className = `chat-message ${msg.role}`;
+
+      let prefix = "System: ";
+      if (msg.role === "user") prefix = "You: ";
+      else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
+
+      if (msg.content && (msg.content.startsWith("<div") || msg.content.startsWith("<img") || msg.content.startsWith("<span"))) {
+        div.innerHTML = `<span style="font-weight:600;">${prefix}</span> ${msg.content}`;
+      } else {
+        div.textContent = `${prefix}${msg.content}`;
+      }
+      log.appendChild(div);
+    });
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+// --- Passive Memory Extraction & Turn Counter ---
+let chatTurnCounter = 0;
+
+async function triggerPassiveMemoryExtraction() {
+  try {
+    const history = await getChatHistory(10);
+    const summaryList = await getPersonalSummary();
+    const profile_summary = summaryList.map(i => `${i.category}: ${i.content}`).join("\n");
+    const contactsList = await getContacts();
+    const contacts_summary = contactsList.map(c => `${c.name}: ${c.value}`).join("\n");
+
+    const res = await fetch("/api/extract-memory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history, profile_summary, contacts_summary })
+    });
+
+    const data = await res.json();
+    if (data.client_actions && Array.isArray(data.client_actions) && data.client_actions.length > 0) {
+      for (const act of data.client_actions) {
+        await processClientAction(act);
+      }
+    }
+  } catch (err) {
+    console.warn("Passive extraction background call error:", err);
+  }
+}
+
+// Attach event listeners for passive memory triggers
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    triggerPassiveMemoryExtraction();
+  }
+});
+
+window.addEventListener("beforeunload", () => {
+  triggerPassiveMemoryExtraction();
+});
+
+// --- Bulk Import & Settings Modal Event Handlers ---
+
+function setupBulkImportHandlers() {
+  const btnSyncMemory = document.getElementById("btn-sync-memory");
+  if (btnSyncMemory) {
+    btnSyncMemory.onclick = async () => {
+      btnSyncMemory.disabled = true;
+      btnSyncMemory.textContent = "Syncing Memory...";
+      await triggerPassiveMemoryExtraction();
+      btnSyncMemory.textContent = "🧠 Sync Memory Now";
+      btnSyncMemory.disabled = false;
+      addChatMessage("system", "🧠 Memory extraction sync complete!");
+      renderChatLog();
+    };
+  }
+
+  const btnCompile = document.getElementById("btn-compile");
+  if (btnCompile) {
+    btnCompile.onclick = () => {
+      const bioEl = document.getElementById("biography-text");
+      const text = bioEl ? bioEl.value.trim() : "";
+      if (!text) {
+        alert("Please enter or paste some text into the Personal Profile text box before compiling.");
+        return;
+      }
+      pendingImportType = "profile";
+      pendingImportText = text;
+      pendingImportFile = null;
+      showImportModeModal("Compile Profile from Text");
+    };
+  }
+
+  const btnImportProfile = document.getElementById("btn-import-profile-file");
+  const profileFileInput = document.getElementById("profile-file-input");
+  if (btnImportProfile && profileFileInput) {
+    btnImportProfile.onclick = () => {
+      profileFileInput.value = "";
+      profileFileInput.click();
+    };
+
+    profileFileInput.onchange = async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        try {
+          const content = await file.text();
+          const bioEl = document.getElementById("biography-text");
+          if (bioEl) bioEl.value = content;
+          pendingImportType = "profile";
+          pendingImportText = content;
+          pendingImportFile = null;
+          showImportModeModal("Compile Profile from Text");
+        } catch (err) {
+          alert("Failed to read selected profile file: " + err.message);
+        }
+      }
+    };
+  }
+
+  const btnImportContacts = document.getElementById("btn-import-contacts-file");
+  const contactsFileInput = document.getElementById("contacts-file-input");
+  if (btnImportContacts && contactsFileInput) {
+    btnImportContacts.onclick = () => {
+      contactsFileInput.value = "";
+      contactsFileInput.click();
+    };
+
+    contactsFileInput.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        pendingImportType = "contacts";
+        pendingImportFile = e.target.files[0];
+        pendingImportText = null;
+        showImportModeModal("Import Contacts File");
+      }
+    };
+  }
+
+  const btnModeReplace = document.getElementById("btn-mode-replace");
+  const btnModeMerge = document.getElementById("btn-mode-merge");
+  const btnModeCancel = document.getElementById("btn-mode-cancel");
+
+  if (btnModeReplace) {
+    btnModeReplace.onclick = () => executeBulkFileImport("replace");
+  }
+  if (btnModeMerge) {
+    btnModeMerge.onclick = () => executeBulkFileImport("merge");
+  }
+  if (btnModeCancel) {
+    btnModeCancel.onclick = closeImportModeModal;
+  }
+}
+
+function showImportModeModal(title) {
+  const modal = document.getElementById("import-mode-modal");
+  const titleEl = document.getElementById("import-mode-title");
+  if (titleEl) titleEl.textContent = title || "Import Data";
+  if (modal) modal.style.display = "flex";
+}
+
+function closeImportModeModal() {
+  const modal = document.getElementById("import-mode-modal");
+  if (modal) modal.style.display = "none";
+  pendingImportFile = null;
+  pendingImportType = null;
+  pendingImportText = null;
+}
+
+async function executeBulkFileImport(mode) {
+  if ((!pendingImportFile && !pendingImportText) || !pendingImportType) return;
+  const modal = document.getElementById("import-mode-modal");
+  if (modal) modal.style.display = "none";
+
+  const targetStore = pendingImportType;
+  let fileContent = "";
+  if (pendingImportText !== null) {
+    fileContent = pendingImportText;
+  } else if (pendingImportFile) {
+    fileContent = await pendingImportFile.text();
+  }
+
+  pendingImportFile = null;
+  pendingImportType = null;
+  pendingImportText = null;
+
+  if (!fileContent.trim()) {
+    alert("No content available for import.");
+    return;
+  }
+
+  const compileBtn = document.getElementById("btn-compile");
+  if (compileBtn && targetStore === "profile") {
+    compileBtn.disabled = true;
+    compileBtn.textContent = "Compiling Profile...";
+  }
+
+  try {
+    let existingContext = "";
+    if (mode === "merge") {
+      if (targetStore === "contacts") {
+        const list = await getContacts();
+        existingContext = list.map(c => `${c.name}: ${c.value}`).join("\n");
+      } else {
+        const list = await getPersonalSummary();
+        existingContext = list.map(i => `${i.category}: ${i.content}`).join("\n");
+      }
+    }
+
+    const res = await fetch("/api/parse-bulk-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        file_content: fileContent,
+        target_store: targetStore,
+        mode: mode,
+        existing_context: existingContext
+      })
+    });
+
+    const data = await res.json();
+    const items = (data && Array.isArray(data.items)) ? data.items : (Array.isArray(data) ? data : null);
+
+    if (items && Array.isArray(items)) {
+      if (targetStore === "contacts") {
+        if (mode === "replace") {
+          await setContacts(items);
+        } else {
+          for (const item of items) {
+            if (item.name) await saveContact(item.name, item.value || "");
+          }
+        }
+        await addChatMessage("system", `📇 Imported ${items.length} contacts (${mode} mode)`);
+        renderChatLog();
+        alert(`📇 Successfully imported ${items.length} contacts (${mode} mode)!`);
+      } else {
+        // Persist profile biography text into settings
+        await setSetting("biography_text", fileContent);
+        settings.biography_text = fileContent;
+
+        if (mode === "replace") {
+          await setPersonalSummary(items);
+        } else {
+          const current = await getPersonalSummary();
+          for (const item of items) {
+            let existing = current.find(i => i.category.toLowerCase() === item.category.toLowerCase());
+            if (!existing) {
+              current.push(item);
+            } else {
+              existing.content = item.content;
+            }
+          }
+          await setPersonalSummary(current);
+        }
+        await addChatMessage("system", `👤 Compiled ${items.length} profile categories from text (${mode} mode)`);
+        renderChatLog();
+        alert(`👤 Successfully compiled ${items.length} profile categories (${mode} mode)!`);
+      }
+    } else {
+      const detail = data.detail || data.error || "Invalid payload format";
+      alert("Bulk file import failed: " + detail);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Bulk file import failed: " + err.message);
+  } finally {
+    if (compileBtn) {
+      compileBtn.disabled = false;
+      compileBtn.textContent = "Compile Profile from Text";
+    }
+  }
+}
+
+// Initialize handlers on page load
+window.addEventListener("DOMContentLoaded", () => {
+  setupBulkImportHandlers();
+});
