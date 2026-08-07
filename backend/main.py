@@ -1,9 +1,12 @@
 import os
 import re
 import time
+import json
 import threading
 import httpx
 import requests
+import urllib.parse
+import urllib.request
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -141,7 +144,59 @@ def control_home_assistant(service: str, entity_id: str) -> str:
     except Exception as e:
         return f"Error connecting to Home Assistant: {str(e)}"
 
+def get_wikipedia_image(query: str) -> str:
+    """Finds and returns an authentic, high-resolution Wikimedia picture URL for any person, place, entity, historical figure, or concept.
+    
+    Args:
+        query: The name of the person, place, or concept to search for (e.g. 'Claude Shannon', 'Albert Einstein', 'Grand Canyon').
+    """
+    clean_query = query.strip().replace(" ", "_")
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(clean_query)}"
+    headers = {"User-Agent": "K2AssistiveWeb/1.0 (philchou@example.com)"}
+    try:
+        res = requests.get(url, headers=headers, timeout=6)
+        if res.status_code == 200:
+            data = res.json()
+            orig = data.get("originalimage", {}).get("source")
+            thumb = data.get("thumbnail", {}).get("source")
+            img_url = orig or thumb
+            if img_url:
+                title = data.get("title", query)
+                desc = data.get("description", "")
+                caption = f"{title}" + (f" - {desc}" if desc else "")
+                if hasattr(thread_local, "client_actions"):
+                    thread_local.client_actions.append({
+                        "type": "operation",
+                        "op_type": "show_image",
+                        "data": {"url": img_url, "caption": caption}
+                    })
+                return f"Successfully retrieved authentic Wikipedia picture of {title}: <operation type=\"show_image\" url=\"{img_url}\" caption=\"{caption}\"/>"
+    except Exception as e:
+        print("Wikipedia image fetch error:", e)
+    return f"Could not find Wikipedia image for '{query}'"
+
 # Operations and Suggestions parsing helper
+def parse_xml_attributes(attrs_str: str) -> dict:
+    attrs = {}
+    full_str = " " + attrs_str
+    matches = list(re.finditer(r'\s+([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*', full_str))
+    for i, m in enumerate(matches):
+        key = m.group(1)
+        val_start = m.end()
+        val_end = matches[i+1].start() if (i + 1 < len(matches)) else len(full_str)
+        raw_val = full_str[val_start:val_end].strip()
+        if len(raw_val) >= 2 and raw_val[0] in '"\'' and raw_val[-1] == raw_val[0]:
+            raw_val = raw_val[1:-1]
+        elif len(raw_val) >= 1 and raw_val[0] in '"\'':
+            quote = raw_val[0]
+            raw_val = raw_val[1:]
+            if raw_val.endswith(quote):
+                raw_val = raw_val[:-1]
+            elif quote in raw_val:
+                raw_val = raw_val.rsplit(quote, 1)[0]
+        attrs[key] = raw_val.strip()
+    return attrs
+
 def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[str, list[dict]]:
     # Bind thread_local.client_actions so helper functions append to client_actions
     thread_local.client_actions = client_actions
@@ -151,8 +206,7 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
     op_matches = re.findall(op_pattern, text, re.DOTALL)
     
     for attrs_str, content_str in op_matches:
-        # Extract attributes from attrs_str (e.g. type="home_assistant" service="turn_on")
-        attrs = dict(re.findall(r'(\w+)=["\'](.*?)["\']', attrs_str))
+        attrs = parse_xml_attributes(attrs_str)
         op_type = attrs.get("type", "").strip()
         
         # Merge inner tag content if present
@@ -179,14 +233,39 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
                 "data": attrs
             })
 
-    # Clean operation tags from user-facing reply
-    clean_text = re.sub(r'<operation\s+.*?(?:>.*?</operation>|/>)', '', text, flags=re.DOTALL)
+    # Clean operation tags except show_image from user-facing reply (keep show_image embedded for inline frontend card rendering)
+    # We remove non-show_image operation tags
+    def remove_non_image_ops(match):
+        attrs_str = match.group(1)
+        attrs = parse_xml_attributes(attrs_str)
+        if attrs.get("type") == "show_image":
+            return match.group(0)
+        return ""
+
+    clean_text = re.sub(r'<operation\s+(.*?)(?:>.*?</operation>|/>)', remove_non_image_ops, text, flags=re.DOTALL)
+
+    # If get_wikipedia_image or helper appended show_image to client_actions, ensure it exists in clean_text
+    for act in client_actions:
+        if act.get("type") == "operation" and act.get("op_type") == "show_image":
+            data = act.get("data", {})
+            img_url = data.get("url", "")
+            caption = data.get("caption", "") or data.get("content", "")
+            if img_url and f'url="{img_url}"' not in clean_text and f'url=\'{img_url}\'' not in clean_text:
+                op_tag = f'\n<operation type="show_image" url="{img_url}" caption="{caption}"/>'
+                if "Do you want me to:" in clean_text:
+                    parts = clean_text.rsplit("Do you want me to:", 1)
+                    clean_text = parts[0].strip() + "\n" + op_tag + "\n\nDo you want me to:" + parts[1]
+                elif "Would you like me to:" in clean_text:
+                    parts = clean_text.rsplit("Would you like me to:", 1)
+                    clean_text = parts[0].strip() + "\n" + op_tag + "\n\nWould you like me to:" + parts[1]
+                else:
+                    clean_text += "\n" + op_tag
 
     # 2. Parse <suggestions>
     suggestions = []
     action_tags = re.findall(r'<action\s+(.*?)(?:>(.*?)</action>|/>)', text, re.DOTALL)
     for attrs, action_text in action_tags:
-        attr_dict = dict(re.findall(r'(\w+)=["\'](.*?)["\']', attrs))
+        attr_dict = parse_xml_attributes(attrs)
         tag = attr_dict.get("tag", "").strip()
         act_text = action_text.strip() if action_text and action_text.strip() else attr_dict.get("description", "").strip()
         if tag and act_text:
@@ -280,6 +359,15 @@ def chat(request: ChatRequest):
             " 13. Contact Store: <operation type=\"contact\" action=\"add|set|update|delete\" key=\"ContactName\" content=\"phone=...; email=...\" old_content=\"...\"/>\n"
             " 14. Setting Store: <operation type=\"setting\" action=\"set\" key=\"SettingKey\" content=\"Value\"/>\n"
             " 15. Macro Store: <operation type=\"macro\" action=\"add|set|update|delete\" key=\"TagLabel\" content=\"Text\" old_content=\"...\"/>\n\n"
+            "VISUAL CHARTS, GRAPHS & IMAGES:\n"
+            "When Kay requests a graph, chart, visual data trend (e.g. GDP for last 10 years, weather comparison, stock performance), or image:\n"
+            "1. You MUST generate an inline visual image using the <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag.\n"
+            "2. For QuickChart URLs, use b=white for a solid white canvas and high-contrast font colors, e.g.: <operation type=\"show_image\" url='https://quickchart.io/chart?b=white&w=650&h=350&c={\"type\":\"line\",\"data\":{\"labels\":[\"2015\",\"2016\",\"2017\",\"2018\",\"2019\",\"2020\",\"2021\",\"2022\",\"2023\",\"2024\",\"2025\"],\"datasets\":[{\"label\":\"U.S. GDP ($ Trillions)\",\"data\":[18.2,18.7,19.5,20.5,21.4,21.1,23.3,25.5,27.4,28.7,29.8],\"borderColor\":\"rgb(31,83,141)\",\"fill\":true}]},\"options\":{\"legend\":{\"labels\":{\"fontColor\":\"#1e293b\",\"fontSize\":14}},\"scales\":{\"xAxes\":[{\"ticks\":{\"fontColor\":\"#1e293b\"}}],\"yAxes\":[{\"ticks\":{\"fontColor\":\"#1e293b\"}}]}}}' caption='U.S. GDP (2015-2025 in Trillions USD)'/>\n"
+            "3. When Kay requests a picture of a person, place, historical figure, or concept (e.g. 'show me a picture of Claude Shannon'):\n"
+            "   You MUST invoke the get_wikipedia_image tool with query='Claude Shannon'! It will fetch the authentic high-resolution Wikimedia picture and display it directly.\n"
+            "4. REPEAT & FOLLOW-UP REQUESTS:\n"
+            "   Whenever Kay asks to see an image, picture, or chart again (e.g. 'Show me again the picture of...', 'Show it again', 'See the graph again', 'Show picture of X again'), you MUST ALWAYS invoke the get_wikipedia_image tool OR output the <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag in your response! NEVER say 'Here is the picture again' without including the <operation type=\"show_image\"> tag or calling get_wikipedia_image!\n"
+            "5. NEVER say 'I cannot display a visual graph or picture'. You have full capability to display inline charts and images!\n\n"
             "UNIFIED DICTIONARY SPECIFICATION:\n"
             "All state stores (profile, contact, setting, macro) follow identical key-value dictionary rules:\n"
             "- action=\"add\": key=K, content=C -> Adds key K with value C, or appends C to key K if K exists.\n"
@@ -324,18 +412,13 @@ def chat(request: ChatRequest):
             f"(MANDATORY FORMATTING INSTRUCTION: End your answer with 'Do you want me to: 1. ..., 2. ..., or 3. ...?' followed immediately by the mandatory <suggestions> XML block containing exactly 3 <action> tags)."
         )
 
-        # Create chat session with native Google Search and Code Execution tools
+        # Create chat session with native Google Search, Code Execution, and Wikipedia Image tools
         chat_session = client.chats.create(
             model="gemini-2.5-flash",
             history=sdk_history,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                tools=[
-                    types.Tool(
-                        google_search=types.GoogleSearch(),
-                        code_execution=types.ToolCodeExecution()
-                    )
-                ]
+                tools=[get_wikipedia_image]
             )
         )
         
