@@ -2692,6 +2692,30 @@ function handleExportFile(filename, content) {
   renderChatLog();
 }
 
+// --- Image Card Builder (shared by processClientAction and formatMarkdownContent) ---
+// Properly URL-encodes QuickChart JSON and HTML-attribute-escapes the URL and caption.
+function buildImageCard(rawUrl, cap) {
+  let imgUrl = rawUrl || "";
+  if (imgUrl.includes("quickchart.io/chart")) {
+    imgUrl = imgUrl.replace("bkg=white", "b=white");
+    if (!imgUrl.includes("b=white")) imgUrl += "&b=white";
+    // URL-encode the JSON in the c= parameter so ", {, } etc. don't break HTML attribute parsing
+    const cIdx = imgUrl.indexOf("&c=");
+    if (cIdx >= 0) {
+      const base = imgUrl.substring(0, cIdx + 3); // keep "…&c="
+      const json = imgUrl.substring(cIdx + 3);
+      imgUrl = base + encodeURIComponent(json);
+    }
+  }
+  // Escape characters that would break the src="..." HTML attribute
+  const safeUrl = imgUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  const safeCap = (cap || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const captionHtml = cap
+    ? `<div style="font-size:13px;color:#1e293b;font-weight:700;text-align:center;margin-top:8px;">${cap.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    : "";
+  return `<div class="k2-image-card" style="margin-top:10px;margin-bottom:10px;background:#ffffff;padding:14px;border-radius:12px;display:inline-block;max-width:100%;box-shadow:0 4px 12px rgba(0,0,0,.25);text-align:center;"><img src="${safeUrl}" alt="${safeCap}" onerror="handleImageLoadError(this,'${safeCap}')" style="max-width:100%;max-height:340px;border-radius:8px;display:block;margin:0 auto;"/>${captionHtml}</div>`;
+}
+
 async function processClientAction(action) {
   if (!action) return;
 
@@ -2752,12 +2776,19 @@ async function processClientAction(action) {
     } else if (op === "export_file") {
       handleExportFile(data.filename || "export.txt", data.content || data.text || "");
     } else if (op === "show_image") {
-      const imgUrl = data.url || "";
-      const caption = data.caption || data.content || "";
-      if (imgUrl) {
-        const imgHtml = `<div style="margin-top:8px;"><img src="${imgUrl}" alt="${caption}" style="max-width:100%; max-height:260px; border-radius:10px; border: 1px solid var(--glass-border); display:block;"/>${caption ? `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${caption}</div>` : ""}</div>`;
-        addChatMessage("cloud_ai", imgHtml);
-        renderChatLog();
+      // Skip if the reply text already rendered an image card via formatMarkdownContent
+      const chatLog = document.getElementById("chat-log-scroll");
+      const lastChatMsg = chatLog && chatLog.lastElementChild;
+      const alreadyRendered = lastChatMsg && lastChatMsg.querySelector(".k2-image-card");
+      if (!alreadyRendered) {
+        const imgUrl = data.url || "";
+        const caption = data.caption || data.content || "";
+        if (imgUrl) {
+          // buildImageCard handles URL-encoding and HTML-attribute escaping
+          const imgHtml = buildImageCard(imgUrl, caption);
+          addChatMessage("cloud_ai", imgHtml);
+          renderChatLog();
+        }
       }
     } else if (op === "set_timer") {
       handleSetTimer(data.seconds || 300, data.label || "Timer");
@@ -3242,24 +3273,97 @@ async function importConfiguration(file) {
   reader.readAsText(file);
 }
 
+async function handleImageLoadError(imgEl, altText) {
+  if (!imgEl || imgEl.dataset.fallbackTried) return;
+  imgEl.dataset.fallbackTried = "true";
+  const query = (altText || "").replace(/^picture of\s+/i, "").replace(/^image of\s+/i, "").trim();
+  if (!query) return;
+  try {
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query.replace(/\s+/g, "_"))}`);
+    if (res.ok) {
+      const data = await res.json();
+      const wikiUrl = (data.originalimage && data.originalimage.source) || (data.thumbnail && data.thumbnail.source);
+      if (wikiUrl) { imgEl.src = wikiUrl; return; }
+    }
+  } catch (e) { /* silent */ }
+  const parent = imgEl.parentElement;
+  if (parent) parent.innerHTML = `<div style="padding:12px; font-size:13px; color:#64748b; font-weight:600;">Picture unavailable for "${query}"</div>`;
+}
+
+function formatMarkdownContent(text) {
+  if (!text) return "";
+
+  // --- Step 0: Extract image tags into numbered placeholders BEFORE any escaping ---
+  // This prevents HTML-escaping from corrupting the generated <img> / <div> HTML.
+  const imgCards = [];
+
+  let html = text;
+
+  // <operation type="show_image" url="..." caption="..."/>  — double-quoted url (no " inside url)
+  html = html.replace(/<operation\s+type=["']show_image["']\s+url="([^"]+)"(?:\s+caption="([^"]*)")?\s*\/?>/gi,
+    (m, url, cap) => { const i = imgCards.length; imgCards.push(buildImageCard(url, cap || "")); return `\x00IMG${i}\x00`; });
+
+  // <operation type="show_image" url='...' caption='...'/>  — single-quoted url (allows " inside)
+  html = html.replace(/<operation\s+type=["']show_image["']\s+url='([^']+)'(?:\s+caption='([^']*)')?\s*\/?>/gi,
+    (m, url, cap) => { const i = imgCards.length; imgCards.push(buildImageCard(url, cap || "")); return `\x00IMG${i}\x00`; });
+
+  // Markdown images: ![alt](url)
+  html = html.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g,
+    (m, alt, url) => { const i = imgCards.length; imgCards.push(buildImageCard(url, alt || "")); return `\x00IMG${i}\x00`; });
+
+  // Legacy: extract raw <div style="margin-top:...><img src="...">...</div> blocks
+  // stored by old processClientAction handler — prevent them from being HTML-escaped.
+  html = html.replace(/<div[^>]*style="[^"]*margin-top:[^>]*>(?:(?!<\/div>).)*<img[^>]*>(?:(?!<\/div>).)*<\/div>(?:<\/div>)?/gs,
+    (match) => { const i = imgCards.length; imgCards.push(match); return `\x00IMG${i}\x00`; });
+
+  // --- Step 1: HTML-escape remaining text (safe against XSS) ---
+  html = html
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // --- Step 2: Restore image card placeholders ---
+  imgCards.forEach((card, i) => { html = html.replace(`\x00IMG${i}\x00`, card); });
+
+  // --- Step 3: Inline Markdown formatting ---
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+  // Markdown links [text](url) — must come before bare URL conversion
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline;">$1</a>');
+
+  // Bare URLs
+  html = html.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,
+    '$1<a href="$2" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline;">$2</a>');
+
+  // Newlines → <br/>
+  html = html.replace(/\n/g, "<br/>");
+
+  return html;
+}
+
+function msgToHtml(msg) {
+  const content = msg.content || "";
+  let prefix = "System: ";
+  if (msg.role === "user") prefix = "You: ";
+  else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
+  // Raw HTML messages (stored image cards etc.) — pass through directly
+  if (content.startsWith("<div") || content.startsWith("<img") || content.startsWith("<span")) {
+    return `<span style="font-weight:600;">${prefix}</span> ${content}`;
+  }
+  return `<span style="font-weight:600;">${prefix}</span> ` + formatMarkdownContent(content);
+}
+
 function renderSingleChatMessage(msg) {
   const log = document.getElementById("chat-log-scroll");
   if (!log) return;
 
   const div = document.createElement("div");
   div.className = `chat-message ${msg.role}`;
+  div.innerHTML = msgToHtml(msg);
 
-  let prefix = "System: ";
-  if (msg.role === "user") prefix = "You: ";
-  else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
-
-  if (msg.content && (msg.content.startsWith("<div") || msg.content.startsWith("<img") || msg.content.startsWith("<span"))) {
-    div.innerHTML = `<span style="font-weight:600;">${prefix}</span> ${msg.content}`;
-  } else {
-    div.textContent = `${prefix}${msg.content}`;
-  }
-
-  // Insert before thinking div if present, otherwise append to end
   const thinkingDiv = log.querySelector(".thinking");
   if (thinkingDiv) {
     log.insertBefore(div, thinkingDiv);
@@ -3274,24 +3378,13 @@ async function renderChatLog(force = false) {
   const log = document.getElementById("chat-log-scroll");
   if (!log) return;
 
-  // Only perform a full DOM clear/rebuild if explicitly forced (e.g. initial load or history import)
-  // or if the chat log container is currently empty.
   if (force || log.children.length === 0) {
     log.innerHTML = "";
     const list = await getChatHistory();
     list.forEach(msg => {
       const div = document.createElement("div");
       div.className = `chat-message ${msg.role}`;
-
-      let prefix = "System: ";
-      if (msg.role === "user") prefix = "You: ";
-      else if (msg.role === "cloud_ai") prefix = "Cloud AI: ";
-
-      if (msg.content && (msg.content.startsWith("<div") || msg.content.startsWith("<img") || msg.content.startsWith("<span"))) {
-        div.innerHTML = `<span style="font-weight:600;">${prefix}</span> ${msg.content}`;
-      } else {
-        div.textContent = `${prefix}${msg.content}`;
-      }
+      div.innerHTML = msgToHtml(msg);
       log.appendChild(div);
     });
     log.scrollTop = log.scrollHeight;
