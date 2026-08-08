@@ -144,6 +144,37 @@ def control_home_assistant(service: str, entity_id: str) -> str:
     except Exception as e:
         return f"Error connecting to Home Assistant: {str(e)}"
 
+def get_web_image(query: str) -> str:
+    """Finds and returns a public web picture URL for any person, entity, place, or concept across the web or Wikipedia.
+    
+    Args:
+        query: The name or search term to look for (e.g. 'Philip Chou LinkedIn', 'Claude Shannon', 'Eiffel Tower').
+    """
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    # 1. Try Bing Image search for general web photos (e.g. LinkedIn profiles, personal web pages)
+    try:
+        url = f"https://www.bing.com/images/search?q={urllib.parse.quote(query)}"
+        res = requests.get(url, headers=headers, timeout=6)
+        if res.status_code == 200:
+            murls = re.findall(r'&quot;murl&quot;:&quot;(https?://[^&]+)&quot;', res.text)
+            if murls:
+                img_url = murls[0]
+                caption = f"Web photo for {query}"
+                if hasattr(thread_local, "client_actions"):
+                    thread_local.client_actions.append({
+                        "type": "operation",
+                        "op_type": "show_image",
+                        "data": {"url": img_url, "caption": caption}
+                    })
+                return f"Successfully retrieved web image for '{query}': <operation type=\"show_image\" url=\"{img_url}\" caption=\"{caption}\"/>"
+    except Exception as e:
+        print("Web image search error:", e)
+
+    # 2. Fallback to Wikipedia summary API
+    return get_wikipedia_image(query)
+
 def get_wikipedia_image(query: str) -> str:
     """Finds and returns an authentic, high-resolution Wikimedia picture URL for any person, place, entity, historical figure, or concept.
     
@@ -226,6 +257,14 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
             txt = attrs.get("text", "") or attrs.get("content", "")
             if txt:
                 inject_text(txt)
+        elif op_type in ["get_web_image", "get_image"]:
+            query = attrs.get("query", "") or attrs.get("content", "")
+            if query:
+                get_web_image(query)
+        elif op_type in ["get_wikipedia_image", "wikipedia_image"]:
+            query = attrs.get("query", "") or attrs.get("content", "")
+            if query:
+                get_wikipedia_image(query)
         elif op_type in ["share", "email", "sms", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder", "profile", "contact", "setting", "macro"]:
             client_actions.append({
                 "type": "operation",
@@ -363,11 +402,15 @@ def chat(request: ChatRequest):
             "When Kay requests a graph, chart, visual data trend (e.g. GDP for last 10 years, weather comparison, stock performance), or image:\n"
             "1. You MUST generate an inline visual image using the <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag.\n"
             "2. For QuickChart URLs, use b=white for a solid white canvas and high-contrast font colors, e.g.: <operation type=\"show_image\" url='https://quickchart.io/chart?b=white&w=650&h=350&c={\"type\":\"line\",\"data\":{\"labels\":[\"2015\",\"2016\",\"2017\",\"2018\",\"2019\",\"2020\",\"2021\",\"2022\",\"2023\",\"2024\",\"2025\"],\"datasets\":[{\"label\":\"U.S. GDP ($ Trillions)\",\"data\":[18.2,18.7,19.5,20.5,21.4,21.1,23.3,25.5,27.4,28.7,29.8],\"borderColor\":\"rgb(31,83,141)\",\"fill\":true}]},\"options\":{\"legend\":{\"labels\":{\"fontColor\":\"#1e293b\",\"fontSize\":14}},\"scales\":{\"xAxes\":[{\"ticks\":{\"fontColor\":\"#1e293b\"}}],\"yAxes\":[{\"ticks\":{\"fontColor\":\"#1e293b\"}}]}}}' caption='U.S. GDP (2015-2025 in Trillions USD)'/>\n"
-            "3. When Kay requests a picture of a person, place, historical figure, or concept (e.g. 'show me a picture of Claude Shannon'):\n"
-            "   You MUST invoke the get_wikipedia_image tool with query='Claude Shannon'! It will fetch the authentic high-resolution Wikimedia picture and display it directly.\n"
-            "4. REPEAT & FOLLOW-UP REQUESTS:\n"
-            "   Whenever Kay asks to see an image, picture, or chart again (e.g. 'Show me again the picture of...', 'Show it again', 'See the graph again', 'Show picture of X again'), you MUST ALWAYS invoke the get_wikipedia_image tool OR output the <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag in your response! NEVER say 'Here is the picture again' without including the <operation type=\"show_image\"> tag or calling get_wikipedia_image!\n"
-            "5. NEVER say 'I cannot display a visual graph or picture'. You have full capability to display inline charts and images!\n\n"
+            "3. DIRECT USER-PROVIDED IMAGE URLS:\n"
+            "   Whenever Kay provides an image URL (such as direct image links ending in .jpg, .png, or media.licdn.com, imgur, web URLs, etc.) or asks to display an image at a specific URL, you MUST ALWAYS output the <operation type=\"show_image\" url=\"URL\" caption=\"...\"/> tag to display it! NEVER refuse to display a user-provided image link or claim privacy restrictions prevent displaying image URLs.\n"
+            "4. WEB IMAGE SEARCH & PEOPLE:\n"
+            "   When Kay requests a picture of a person (e.g. 'Philip Chou LinkedIn', 'Claude Shannon'), place, or concept across the web or Wikipedia:\n"
+            "   You MUST output the XML operation tag: <operation type=\"get_web_image\" query=\"Philip Chou LinkedIn\"/> (or <operation type=\"get_wikipedia_image\" query=\"...\"/>)!\n"
+            "   The system backend will automatically execute the image search, resolve the direct picture URL, and render the visual image card.\n"
+            "5. REPEAT & FOLLOW-UP REQUESTS:\n"
+            "   Whenever Kay asks to see an image, picture, or chart again (e.g. 'Show me again the picture of...', 'Show it again', 'See the graph again', 'Show picture of X again'), you MUST ALWAYS output the <operation type=\"get_web_image\" query=\"...\"/> or <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag in your response! NEVER say 'Here is the picture again' without including an <operation> tag!\n"
+            "6. NEVER say 'I cannot display a visual graph or picture' or 'I cannot access social media images'. You have full capability to display inline charts and images!\n\n"
             "UNIFIED DICTIONARY SPECIFICATION:\n"
             "All state stores (profile, contact, setting, macro) follow identical key-value dictionary rules:\n"
             "- action=\"add\": key=K, content=C -> Adds key K with value C, or appends C to key K if K exists.\n"
@@ -412,13 +455,16 @@ def chat(request: ChatRequest):
             f"(MANDATORY FORMATTING INSTRUCTION: End your answer with 'Do you want me to: 1. ..., 2. ..., or 3. ...?' followed immediately by the mandatory <suggestions> XML block containing exactly 3 <action> tags)."
         )
 
-        # Create chat session with native Google Search, Code Execution, and Wikipedia Image tools
+        # Create chat session with native Google Search and Code Execution tools
         chat_session = client.chats.create(
             model="gemini-2.5-flash",
             history=sdk_history,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                tools=[get_wikipedia_image]
+                tools=[
+                    types.Tool(google_search=types.GoogleSearch()),
+                    types.Tool(code_execution=types.ToolCodeExecution())
+                ]
             )
         )
         
@@ -430,7 +476,13 @@ def chat(request: ChatRequest):
         for server_attempt in range(max_server_attempts):
             try:
                 response = chat_session.send_message(user_prompt)
-                raw_text = response.text.strip()
+                raw_text = (response.text or "").strip()
+                if not raw_text and hasattr(response, "candidates") and response.candidates:
+                    parts_text = []
+                    for part in response.candidates[0].content.parts:
+                        if hasattr(part, "text") and part.text:
+                            parts_text.append(part.text)
+                    raw_text = "\n".join(parts_text).strip()
                 break
             except Exception as ex:
                 last_exception = ex
