@@ -2,6 +2,7 @@ import os
 import re
 import time
 import json
+import base64
 import threading
 import httpx
 import requests
@@ -144,47 +145,56 @@ def control_home_assistant(service: str, entity_id: str) -> str:
     except Exception as e:
         return f"Error connecting to Home Assistant: {str(e)}"
 
-def get_web_image(query: str) -> str:
-    """Finds and returns a public web picture URL for any person, entity, place, or concept across the web or Wikipedia.
-    
-    Args:
-        query: The name or search term to look for (e.g. 'Philip Chou LinkedIn', 'Claude Shannon', 'Eiffel Tower').
-    """
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-    # 1. Try Bing Image search for general web photos (e.g. LinkedIn profiles, personal web pages)
-    try:
-        url = f"https://www.bing.com/images/search?q={urllib.parse.quote(query)}"
-        res = requests.get(url, headers=headers, timeout=6)
-        if res.status_code == 200:
-            murls = re.findall(r'&quot;murl&quot;:&quot;(https?://[^&]+)&quot;', res.text)
-            if murls:
-                img_url = murls[0]
-                caption = f"Web photo for {query}"
-                if hasattr(thread_local, "client_actions"):
-                    thread_local.client_actions.append({
-                        "type": "operation",
-                        "op_type": "show_image",
-                        "data": {"url": img_url, "caption": caption}
-                    })
-                return f"Successfully retrieved web image for '{query}': <operation type=\"show_image\" url=\"{img_url}\" caption=\"{caption}\"/>"
-    except Exception as e:
-        print("Web image search error:", e)
-
-    # 2. Fallback to Wikipedia summary API
-    return get_wikipedia_image(query)
-
 def get_wikipedia_image(query: str) -> str:
-    """Finds and returns an authentic, high-resolution Wikimedia picture URL for any person, place, entity, historical figure, or concept.
+    """Finds and returns an authentic, high-resolution Wikimedia picture URL for any person, place, entity, historical figure, diagram, or concept.
     
     Args:
-        query: The name of the person, place, or concept to search for (e.g. 'Claude Shannon', 'Albert Einstein', 'Grand Canyon').
+        query: The name of the person, place, file, or concept to search for (e.g. 'Norman Rockwell', 'Claude Shannon', 'Inner product space', 'File:Inner-product-angle.svg').
     """
-    clean_query = query.strip().replace(" ", "_")
-    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(clean_query)}"
     headers = {"User-Agent": "K2AssistiveWeb/1.0 (philchou@example.com)"}
+    clean_q = query.strip()
+    
+    # 1. Direct Wikimedia File request (e.g. File:Inner-product-angle.svg)
+    if clean_q.lower().startswith("file:"):
+        try:
+            url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(clean_q)}&prop=imageinfo&iiprop=url&format=json"
+            res = requests.get(url, headers=headers, timeout=6)
+            if res.status_code == 200:
+                pages = res.json().get("query", {}).get("pages", {})
+                for k, v in pages.items():
+                    info = v.get("imageinfo", [])
+                    if info and info[0].get("url"):
+                        img_url = info[0]["url"]
+                        caption = clean_q
+                        if hasattr(thread_local, "client_actions"):
+                            thread_local.client_actions.append({
+                                "type": "operation",
+                                "op_type": "show_image",
+                                "data": {"url": img_url, "caption": caption}
+                            })
+                        return f"Successfully retrieved Wikimedia file: <operation type=\"show_image\" url=\"{img_url}\" caption=\"{caption}\"/>"
+        except Exception as e:
+            print("Wikimedia file fetch error:", e)
+
+    # 2. Search Wikipedia for best matching article title
+    title = None
     try:
+        search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(clean_q)}&utf8=&format=json"
+        res = requests.get(search_url, headers=headers, timeout=6)
+        if res.status_code == 200:
+            results = res.json().get("query", {}).get("search", [])
+            if results:
+                title = results[0].get("title")
+    except Exception as e:
+        print("Wikipedia search error:", e)
+
+    if not title:
+        title = clean_q
+
+    # 3. Retrieve Page Summary and Lead Image for the resolved title
+    try:
+        clean_title = title.strip().replace(" ", "_")
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(clean_title)}"
         res = requests.get(url, headers=headers, timeout=6)
         if res.status_code == 200:
             data = res.json()
@@ -192,19 +202,55 @@ def get_wikipedia_image(query: str) -> str:
             thumb = data.get("thumbnail", {}).get("source")
             img_url = orig or thumb
             if img_url:
-                title = data.get("title", query)
+                res_title = data.get("title", title)
                 desc = data.get("description", "")
-                caption = f"{title}" + (f" - {desc}" if desc else "")
+                caption = f"{res_title}" + (f" - {desc}" if desc else "")
                 if hasattr(thread_local, "client_actions"):
                     thread_local.client_actions.append({
                         "type": "operation",
                         "op_type": "show_image",
                         "data": {"url": img_url, "caption": caption}
                     })
-                return f"Successfully retrieved authentic Wikipedia picture of {title}: <operation type=\"show_image\" url=\"{img_url}\" caption=\"{caption}\"/>"
+                return f"Successfully retrieved authentic Wikipedia picture of {res_title}: <operation type=\"show_image\" url=\"{img_url}\" caption=\"{caption}\"/>"
     except Exception as e:
         print("Wikipedia image fetch error:", e)
+
     return f"Could not find Wikipedia image for '{query}'"
+
+def generate_ai_image(prompt: str, caption: str = "") -> str:
+    """Synthesizes a custom visual image or scientific diagram using gemini-2.5-flash-image.
+    
+    Args:
+        prompt: Descriptive text prompt for the image/diagram to synthesize.
+        caption: Display caption for the visual card.
+    """
+    if not client:
+        return "Gemini API client not initialized."
+    
+    try:
+        res = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=prompt
+        )
+        if res.candidates and res.candidates[0].content.parts:
+            for part in res.candidates[0].content.parts:
+                if hasattr(part, "inline_data") and part.inline_data and part.inline_data.data:
+                    b64_data = base64.b64encode(part.inline_data.data).decode("utf-8")
+                    mime = part.inline_data.mime_type or "image/png"
+                    data_url = f"data:{mime};base64,{b64_data}"
+                    cap = caption.strip() if caption else f"AI Visual: {prompt[:60]}"
+                    if hasattr(thread_local, "client_actions"):
+                        thread_local.client_actions.append({
+                            "type": "operation",
+                            "op_type": "show_image",
+                            "data": {"url": data_url, "caption": cap}
+                        })
+                    return f"Successfully generated visual: <operation type=\"show_image\" url=\"{data_url}\" caption=\"{cap}\"/>"
+    except Exception as e:
+        print("Gemini image generation error:", e)
+        return f"Image generation error: {e}"
+
+    return f"Could not generate image for prompt: '{prompt}'"
 
 # Operations and Suggestions parsing helper
 def parse_xml_attributes(attrs_str: str) -> dict:
@@ -227,6 +273,40 @@ def parse_xml_attributes(attrs_str: str) -> dict:
                 raw_val = raw_val.rsplit(quote, 1)[0]
         attrs[key] = raw_val.strip()
     return attrs
+
+def sanitize_history_content(text: str) -> str:
+    """Sanitizes past conversation turns to strip large base64 image data strings and prevent TPM quota spikes."""
+    if not text or not isinstance(text, str):
+        return ""
+
+    # 1. Transform <operation ... show_image ... url="data:image/..." .../> into concise [Generated Visual: caption]
+    def replace_show_image_op(match):
+        attrs_str = match.group(1)
+        attrs = parse_xml_attributes(attrs_str)
+        op_type = attrs.get("type", "").strip()
+        if op_type == "show_image":
+            caption = attrs.get("caption", "").strip() or attrs.get("content", "").strip()
+            url = attrs.get("url", "").strip()
+            if url.startswith("data:image") or len(url) > 500:
+                return f"[Generated Visual: {caption}]" if caption else "[Generated Visual: image]"
+        return match.group(0)
+
+    clean = re.sub(r'<operation\s+(.*?)(?:>(.*?)</operation>|/>)', replace_show_image_op, text, flags=re.DOTALL | re.IGNORECASE)
+
+    # 2. Transform markdown images with data URIs: ![caption](data:image/...) -> [Image: caption]
+    def replace_md_image(match):
+        caption = match.group(1).strip()
+        return f"[Image: {caption}]" if caption else "[Image]"
+
+    clean = re.sub(r'!\[([^\]]*)\]\(data:image\/[a-zA-Z0-9+.-]+;base64,[^)]+\)', replace_md_image, clean)
+
+    # 3. Strip any other data:image/...;base64 strings
+    clean = re.sub(r'data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+', '[inline-image]', clean)
+
+    # 4. Safeguard against any other long raw base64 or binary chunks (>300 chars without whitespace)
+    clean = re.sub(r'[A-Za-z0-9+/]{300,}={0,2}', '[binary-data-omitted]', clean)
+
+    return clean
 
 def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[str, list[dict]]:
     # Bind thread_local.client_actions so helper functions append to client_actions
@@ -265,6 +345,11 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
             query = attrs.get("query", "") or attrs.get("content", "")
             if query:
                 get_wikipedia_image(query)
+        elif op_type in ["generate_image", "generate_ai_image", "ai_image"]:
+            prompt = attrs.get("prompt", "") or attrs.get("content", "")
+            caption = attrs.get("caption", "")
+            if prompt:
+                generate_ai_image(prompt, caption)
         elif op_type in ["share", "email", "sms", "export_file", "show_image", "set_timer", "set_alarm", "set_reminder", "profile", "contact", "setting", "macro"]:
             client_actions.append({
                 "type": "operation",
@@ -366,12 +451,13 @@ def chat(request: ChatRequest):
             if not content.strip():
                 continue
             
+            clean_content = sanitize_history_content(content)
             # Map role names to google-genai standard user/model values
             sdk_role = "user" if role == "user" else "model"
             sdk_history.append(
                 types.Content(
                     role=sdk_role,
-                    parts=[types.Part.from_text(text=content)]
+                    parts=[types.Part.from_text(text=clean_content)]
                 )
             )
 
@@ -408,9 +494,12 @@ def chat(request: ChatRequest):
             "   When Kay requests a picture of a person (e.g. 'Philip Chou LinkedIn', 'Claude Shannon'), place, or concept across the web or Wikipedia:\n"
             "   You MUST output the XML operation tag: <operation type=\"get_web_image\" query=\"Philip Chou LinkedIn\"/> (or <operation type=\"get_wikipedia_image\" query=\"...\"/>)!\n"
             "   The system backend will automatically execute the image search, resolve the direct picture URL, and render the visual image card.\n"
-            "5. REPEAT & FOLLOW-UP REQUESTS:\n"
-            "   Whenever Kay asks to see an image, picture, or chart again (e.g. 'Show me again the picture of...', 'Show it again', 'See the graph again', 'Show picture of X again'), you MUST ALWAYS output the <operation type=\"get_web_image\" query=\"...\"/> or <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag in your response! NEVER say 'Here is the picture again' without including an <operation> tag!\n"
-            "6. NEVER say 'I cannot display a visual graph or picture' or 'I cannot access social media images'. You have full capability to display inline charts and images!\n\n"
+            "5. AI IMAGE GENERATION & SCIENTIFIC DIAGRAMS:\n"
+            "   When Kay asks to generate, draw, paint, synthesize, or illustrate a new image, custom diagram, or artistic visual:\n"
+            "   You MUST output the XML operation tag: <operation type=\"generate_image\" prompt=\"Detailed descriptive prompt\" caption=\"Short title\"/>!\n"
+            "6. REPEAT & FOLLOW-UP REQUESTS:\n"
+            "   Whenever Kay asks to see an image, picture, or chart again (e.g. 'Show me again the picture of...', 'Show it again', 'See the graph again', 'Show picture of X again'), you MUST ALWAYS output the <operation type=\"get_web_image\" query=\"...\"/>, <operation type=\"generate_image\" prompt=\"...\"/>, or <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag in your response! NEVER say 'Here is the picture again' without including an <operation> tag!\n"
+            "7. NEVER say 'I cannot display a visual graph or picture' or 'I cannot access social media images'. You have full capability to display inline charts and images!\n\n"
             "UNIFIED DICTIONARY SPECIFICATION:\n"
             "All state stores (profile, contact, setting, macro) follow identical key-value dictionary rules:\n"
             "- action=\"add\": key=K, content=C -> Adds key K with value C, or appends C to key K if K exists.\n"
@@ -451,7 +540,7 @@ def chat(request: ChatRequest):
             f"[SAVED MACROS]\n{request.macros_summary}\n\n"
             f"[CHAT HISTORY STATS]\n{history_stats}\n\n"
             f"[APP MANUAL & HELP]\n{request.app_manual}\n\n"
-            f"User message: {request.user_message}\n\n"
+            f"User message: {sanitize_history_content(request.user_message)}\n\n"
             f"(MANDATORY FORMATTING INSTRUCTION: End your answer with 'Do you want me to: 1. ..., 2. ..., or 3. ...?' followed immediately by the mandatory <suggestions> XML block containing exactly 3 <action> tags)."
         )
 
@@ -534,7 +623,7 @@ def predict_words(request: WordPredictionRequest):
         lines = []
         for msg in request.history:
             role = msg.get("role", "user")
-            content = msg.get("content", "")
+            content = sanitize_history_content(msg.get("content", ""))
             if role == "user":
                 lines.append(f"You: {content}")
             elif role == "cloud_ai":
@@ -590,7 +679,7 @@ def predict_phrases(request: PhrasePredictionRequest):
         lines = []
         for msg in request.history:
             role = msg.get("role", "user")
-            content = msg.get("content", "")
+            content = sanitize_history_content(msg.get("content", ""))
             if role == "user":
                 lines.append(f"You: {content}")
             elif role == "cloud_ai":
@@ -842,7 +931,8 @@ def extract_memory(request: ExtractMemoryRequest):
         transcript = ""
         for turn in recent_turns:
             role = "User" if turn.get("role") == "user" else "Assistant"
-            transcript += f"{role}: {turn.get('content', '')}\n"
+            clean_turn = sanitize_history_content(turn.get('content', ''))
+            transcript += f"{role}: {clean_turn}\n"
 
         prompt = (
             "You are an auxiliary memory extraction worker for K2. "

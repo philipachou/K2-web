@@ -2713,7 +2713,13 @@ function buildImageCard(rawUrl, cap) {
   const captionHtml = cap
     ? `<div style="font-size:13px;color:#1e293b;font-weight:700;text-align:center;margin-top:8px;">${cap.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
     : "";
-  return `<div class="k2-image-card" style="margin-top:10px;margin-bottom:10px;background:#ffffff;padding:14px;border-radius:12px;display:inline-block;max-width:100%;box-shadow:0 4px 12px rgba(0,0,0,.25);text-align:center;"><img src="${safeUrl}" alt="${safeCap}" onerror="handleImageLoadError(this,'${safeCap}')" style="max-width:100%;max-height:340px;border-radius:8px;display:block;margin:0 auto;"/>${captionHtml}</div>`;
+  return `<div class="k2-image-card" style="margin-top:10px;margin-bottom:10px;background:#ffffff;padding:14px;border-radius:12px;display:inline-block;max-width:100%;box-shadow:0 4px 12px rgba(0,0,0,.25);text-align:center;">` +
+    `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="Open image in new tab" style="display:block;cursor:pointer;text-decoration:none;">` +
+      `<img src="${safeUrl}" alt="${safeCap}" onerror="handleImageLoadError(this,'${safeCap}')" style="max-width:100%;max-height:340px;border-radius:8px;display:block;margin:0 auto;"/>` +
+    `</a>` +
+    `${captionHtml}` +
+    `<div style="margin-top:6px;text-align:center;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb;text-decoration:underline;word-break:break-all;" title="${safeUrl}">Open Image URL ↗</a></div>` +
+  `</div>`;
 }
 
 async function processClientAction(action) {
@@ -3283,11 +3289,16 @@ async function handleImageLoadError(imgEl, altText) {
     if (res.ok) {
       const data = await res.json();
       const wikiUrl = (data.originalimage && data.originalimage.source) || (data.thumbnail && data.thumbnail.source);
-      if (wikiUrl) { imgEl.src = wikiUrl; return; }
+      if (wikiUrl) {
+        imgEl.src = wikiUrl;
+        const link = imgEl.closest("a");
+        if (link) link.href = wikiUrl;
+        return;
+      }
     }
   } catch (e) { /* silent */ }
-  const parent = imgEl.parentElement;
-  if (parent) parent.innerHTML = `<div style="padding:12px; font-size:13px; color:#64748b; font-weight:600;">Picture unavailable for "${query}"</div>`;
+  const card = imgEl.closest(".k2-image-card") || imgEl.parentElement;
+  if (card) card.innerHTML = `<div style="padding:12px; font-size:13px; color:#64748b; font-weight:600;">Picture unavailable for "${query}"</div>`;
 }
 
 function formatMarkdownContent(text) {
