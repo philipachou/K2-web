@@ -557,7 +557,8 @@ let settings = {
   elevenlabs_voice: "URdpYjdnCOSIXKpzB6KE",
   hover_brightness: 1.2,
   use_os_keyboard: 0,
-  auto_hide_k2_keyboard: 0
+  auto_hide_k2_keyboard: 0,
+  tag_separator: "|"
 };
 
 function syncSettingsModalUI() {
@@ -599,6 +600,9 @@ function syncSettingsModalUI() {
 
   const hoverBEl = document.getElementById("hover-brightness");
   if (hoverBEl) hoverBEl.value = settings.hover_brightness || 1.2;
+
+  const tagSepEl = document.getElementById("tag-separator-input");
+  if (tagSepEl) tagSepEl.value = settings.tag_separator || "|";
 
   const localVEl = document.getElementById("local-tts-voice-select");
   if (localVEl && settings.local_tts_voice) localVEl.value = settings.local_tts_voice;
@@ -732,13 +736,14 @@ function getChatHistory(limit = 10) {
   });
 }
 
-function addChatMessage(role, content) {
+function addChatMessage(role, content, suggestions = null) {
   return new Promise((resolve) => {
     const txn = db.transaction("chat_history", "readwrite");
     const store = txn.objectStore("chat_history");
-    store.add({ role, content, timestamp: new Date().toISOString() });
+    const item = { role, content, suggestions, timestamp: new Date().toISOString() };
+    store.add(item);
     txn.oncomplete = () => {
-      renderSingleChatMessage({ role, content });
+      renderSingleChatMessage(item);
       resolve();
     };
   });
@@ -825,6 +830,7 @@ async function seedDefaults() {
     await setSetting("min_target_height", "40");
     await setSetting("basins_of_attraction", "0");
     await setSetting("hover_brightness", "1.2");
+    await setSetting("tag_separator", "|");
     await setSetting("biography_text", "Name: Kay. Patient diagnosed with ALS.\nHusband: Phil. Family visits frequently.\nInterests: Loves science fiction and smart home tech.");
 
     await setPersonalSummary([
@@ -839,12 +845,14 @@ async function seedDefaults() {
     await saveAction("[laughing]", "[laughing] ");
     await saveAction("Pete", "Pete ");
     await saveAction("Phil", "Phil ");
-    await saveAction("hello", "hello ");
-    await saveAction("please", "please ");
-    await saveAction("thank you", "thank you ");
-    await saveAction("TTS okay?", "I'm going to speak to you through this device, if that's okay ");
-    await saveAction("I would like", "I would like ");
-    await saveAction("toggle the lights", "toggle the lights ");
+    await saveAction("greetings|hello", "hello ");
+    await saveAction("greetings|please", "please ");
+    await saveAction("greetings|thank you", "thank you ");
+    await saveAction("phrases|TTS okay?", "I'm going to speak to you through this device, if that's okay ");
+    await saveAction("phrases|I would like", "I would like ");
+    await saveAction("smart home|lights|living room", "toggle the living room lights ");
+    await saveAction("smart home|lights|bedroom", "toggle the bedroom lights ");
+    await saveAction("smart home|thermostat|temperature", "check the temperature ");
   }
 }
 
@@ -1116,6 +1124,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const buttonGapY = await getSetting("button_gap_y", "4");
   const useOS = await getSetting("use_os_keyboard", "0");
   const autoHide = await getSetting("auto_hide_k2_keyboard", "0");
+  const tagSep = await getSetting("tag_separator", "|");
 
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
   document.getElementById("font-editor").value = fontEd;
@@ -1137,6 +1146,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (hoverBEl) {
     hoverBEl.value = hoverB;
   }
+  const tagSepEl = document.getElementById("tag-separator-input");
+  if (tagSepEl) {
+    tagSepEl.value = tagSep || "|";
+  }
 
   // Cache globally
   settings.font_size_editor = parseInt(fontEd, 10) || 32;
@@ -1154,6 +1167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.local_tts_voice = localVoice;
   settings.elevenlabs_voice = elevenlabsVoice;
   settings.hover_brightness = parseFloat(hoverB) || 1.2;
+  settings.tag_separator = tagSep || "|";
   document.documentElement.style.setProperty("--hover-brightness", settings.hover_brightness);
   document.documentElement.style.setProperty("--min-target-height", `${settings.min_target_height}px`);
   document.documentElement.style.setProperty("--min-target-width", `${settings.min_target_width}px`);
@@ -1174,6 +1188,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupHorizontalDwellScrolling("phrases-prediction-row");
   setupHorizontalDwellScrolling("edit-toolbar");
   setupHorizontalDwellScrolling("actions-header-controls");
+  setupHorizontalDwellScrolling("actions-nav-bar");
 
   renderSavedActions();
   renderChatLog(true);
@@ -1516,8 +1531,8 @@ function setupUIBindings() {
   // Global window key intercept for physical keyboards
   window.addEventListener("keydown", (e) => {
     const activeEl = document.activeElement;
-    if (activeEl && ["biography-text", "font-editor", "font-keyboard", "hover-brightness", "min-target-width", "min-target-height", "ha-url-input", "ha-token-input"].includes(activeEl.id)) {
-      return; // Skip intercepting inside modal inputs
+    if (activeEl && activeEl !== editor && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+      return; // Skip intercepting inside any non-editor input fields (modals, dialogs, etc.)
     }
 
     if (e.ctrlKey || e.metaKey) return;
@@ -1583,6 +1598,59 @@ function setupUIBindings() {
 
   document.getElementById("btn-cloud").addEventListener("click", executeSendCloud);
 
+  function promptForTag(title, defaultPrefix) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById("tag-prompt-modal");
+      const titleEl = document.getElementById("tag-prompt-title");
+      const inputEl = document.getElementById("tag-prompt-input");
+      const btnSave = document.getElementById("btn-tag-prompt-save");
+      const btnCancel = document.getElementById("btn-tag-prompt-cancel");
+
+      if (!modal || !inputEl || !btnSave || !btnCancel) {
+        const res = prompt(title, defaultPrefix);
+        resolve(res);
+        return;
+      }
+
+      titleEl.textContent = title;
+      inputEl.value = defaultPrefix || "";
+      modal.style.display = "flex";
+      inputEl.focus();
+      inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+
+      const cleanup = () => {
+        modal.style.display = "none";
+        btnSave.onclick = null;
+        btnCancel.onclick = null;
+        inputEl.onkeydown = null;
+      };
+
+      btnSave.onclick = () => {
+        const val = inputEl.value.trim();
+        cleanup();
+        resolve(val || null);
+      };
+
+      btnCancel.onclick = () => {
+        cleanup();
+        resolve(null);
+      };
+
+      inputEl.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const val = inputEl.value.trim();
+          cleanup();
+          resolve(val || null);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cleanup();
+          resolve(null);
+        }
+      };
+    });
+  }
+
   document.getElementById("btn-save").addEventListener("click", async () => {
     if (!editor.value) return;
 
@@ -1593,8 +1661,9 @@ function setupUIBindings() {
       addChatMessage("system", `Saved changes to macro "${loadedActionTag}"`);
       renderChatLog();
     } else {
-      // Act like Save As
-      const tag = prompt("Enter a short tag/label for this macro button:");
+      // Act like Save As with pre-populated current navigation prefix
+      const prefix = getCurrentPrefix();
+      const tag = await promptForTag("Save Action Macro", prefix);
       if (!tag) return;
       await saveAction(tag, editor.value);
       loadedActionTag = tag;
@@ -1605,7 +1674,8 @@ function setupUIBindings() {
 
   document.getElementById("btn-save-as").addEventListener("click", async () => {
     if (!editor.value) return;
-    const tag = prompt("Save As... Enter a new tag/label for this macro:");
+    const prefix = getCurrentPrefix();
+    const tag = await promptForTag("Save As... New Action Macro", prefix);
     if (!tag) return;
     await saveAction(tag, editor.value);
     loadedActionTag = tag;
@@ -1705,6 +1775,8 @@ function setupUIBindings() {
     const elevenlabsVoice = document.getElementById("elevenlabs-voice-select").value;
     const hoverBEl = document.getElementById("hover-brightness");
     const hoverBrightness = hoverBEl ? hoverBEl.value : "1.2";
+    const newTagSep = (document.getElementById("tag-separator-input")?.value || "|").trim() || "|";
+    const oldTagSep = settings.tag_separator || "|";
 
     // Stop preview audio if playing
     if (activePreviewAudio) {
@@ -1727,6 +1799,12 @@ function setupUIBindings() {
     await setSetting("local_tts_voice", localVoice);
     await setSetting("elevenlabs_voice", elevenlabsVoice);
     await setSetting("hover_brightness", hoverBrightness);
+    await setSetting("tag_separator", newTagSep);
+
+    // If tag separator changed, migrate all action tags in DB
+    if (newTagSep !== oldTagSep) {
+      await migrateTagSeparators(oldTagSep, newTagSep);
+    }
 
     // Check if biography text has changed since last save/load
     if (bioText !== originalBiographyText) {
@@ -1751,6 +1829,7 @@ function setupUIBindings() {
     settings.local_tts_voice = localVoice;
     settings.elevenlabs_voice = elevenlabsVoice;
     settings.hover_brightness = parseFloat(hoverBrightness) || 1.2;
+    settings.tag_separator = newTagSep;
 
     applyKeyboardSettings();
 
@@ -1763,6 +1842,7 @@ function setupUIBindings() {
 
     updatePredictionsAndKeyboard();
     updateToolbarLayouts();
+    renderSavedActions();
     document.getElementById("settings-modal").style.display = "none";
   });
 
@@ -1780,50 +1860,76 @@ function setupUIBindings() {
 }
 
 // --- Editor Suffix/Prefix insertion operations ---
-function insertTextAtCursor(text) {
-  const editor = document.getElementById("editor-box");
-  const start = editor.selectionStart;
-  const end = editor.selectionEnd;
-  const currentText = editor.value;
+function getActiveInputTarget() {
+  const active = document.activeElement;
+  if (active && active !== document.body && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && !active.readOnly && !active.disabled) {
+    return active;
+  }
+  return document.getElementById("editor-box");
+}
 
-  editor.value = currentText.substring(0, start) + text + currentText.substring(end);
-  editor.selectionStart = editor.selectionEnd = start + text.length;
-  previousCaretPosition = editor.selectionStart;
-  updatePredictionsAndKeyboard();
+function insertTextAtCursor(text) {
+  const target = getActiveInputTarget();
+  if (!target) return;
+
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? target.value.length;
+  const currentText = target.value || "";
+
+  target.value = currentText.substring(0, start) + text + currentText.substring(end);
+  const newPos = start + text.length;
+  try {
+    target.selectionStart = target.selectionEnd = newPos;
+  } catch (_) {}
+
+  if (target.id === "editor-box") {
+    previousCaretPosition = target.selectionStart;
+    updatePredictionsAndKeyboard();
+  }
 }
 
 function deleteChar() {
-  const editor = document.getElementById("editor-box");
-  const start = editor.selectionStart;
-  const end = editor.selectionEnd;
-  const currentText = editor.value;
+  const target = getActiveInputTarget();
+  if (!target) return;
+
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? target.value.length;
+  const currentText = target.value || "";
 
   if (start !== end) {
-    editor.value = currentText.substring(0, start) + currentText.substring(end);
-    editor.selectionStart = editor.selectionEnd = start;
+    target.value = currentText.substring(0, start) + currentText.substring(end);
+    try { target.selectionStart = target.selectionEnd = start; } catch (_) {}
   } else if (start > 0) {
-    editor.value = currentText.substring(0, start - 1) + currentText.substring(start);
-    editor.selectionStart = editor.selectionEnd = start - 1;
+    target.value = currentText.substring(0, start - 1) + currentText.substring(start);
+    try { target.selectionStart = target.selectionEnd = start - 1; } catch (_) {}
   }
-  previousCaretPosition = editor.selectionStart;
-  updatePredictionsAndKeyboard();
+
+  if (target.id === "editor-box") {
+    previousCaretPosition = target.selectionStart;
+    updatePredictionsAndKeyboard();
+  }
 }
 
 function deleteNextChar() {
-  const editor = document.getElementById("editor-box");
-  const start = editor.selectionStart;
-  const end = editor.selectionEnd;
-  const currentText = editor.value;
+  const target = getActiveInputTarget();
+  if (!target) return;
+
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? target.value.length;
+  const currentText = target.value || "";
 
   if (start !== end) {
-    editor.value = currentText.substring(0, start) + currentText.substring(end);
-    editor.selectionStart = editor.selectionEnd = start;
+    target.value = currentText.substring(0, start) + currentText.substring(end);
+    try { target.selectionStart = target.selectionEnd = start; } catch (_) {}
   } else if (start < currentText.length) {
-    editor.value = currentText.substring(0, start) + currentText.substring(start + 1);
-    editor.selectionStart = editor.selectionEnd = start;
+    target.value = currentText.substring(0, start) + currentText.substring(start + 1);
+    try { target.selectionStart = target.selectionEnd = start; } catch (_) {}
   }
-  previousCaretPosition = editor.selectionStart;
-  updatePredictionsAndKeyboard();
+
+  if (target.id === "editor-box") {
+    previousCaretPosition = target.selectionStart;
+    updatePredictionsAndKeyboard();
+  }
 }
 
 function deleteWord() {
@@ -2240,8 +2346,10 @@ function renderKeyboard(probabilities) {
       keyBtn.addEventListener("touchstart", (e) => e.preventDefault());
 
       keyBtn.onclick = () => {
-        const editor = document.getElementById("editor-box");
-        editor.focus();
+        const target = getActiveInputTarget();
+        if (target) {
+          target.focus();
+        }
 
         if (key === "Shift") {
           shiftActive = !shiftActive;
@@ -2301,38 +2409,258 @@ function setupHoverPreview(element, text) {
   };
 }
 
+let currentNavPath = [];
+
+function getCurrentSeparator() {
+  return settings.tag_separator || "|";
+}
+
+function getCurrentPrefix() {
+  const sep = getCurrentSeparator();
+  if (currentNavPath.length === 0) return "";
+  return currentNavPath.join(sep) + sep;
+}
+
+function escapeHtml(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderActionsNavBar() {
+  const navBar = document.getElementById("actions-nav-bar");
+  if (!navBar) return;
+  navBar.innerHTML = "";
+
+  // Home root button (Home icon only)
+  const homeBtn = document.createElement("button");
+  homeBtn.className = "nav-breadcrumb-btn nav-home-btn" + (currentNavPath.length === 0 ? " active" : "");
+  homeBtn.innerHTML = "🏠";
+  homeBtn.title = "Home";
+  homeBtn.onclick = () => {
+    currentNavPath = [];
+    renderSavedActions();
+  };
+  navBar.appendChild(homeBtn);
+
+  // Subtag breadcrumb buttons
+  currentNavPath.forEach((subtag, idx) => {
+    const sep = document.createElement("span");
+    sep.className = "nav-breadcrumb-sep";
+    sep.textContent = getCurrentSeparator();
+    navBar.appendChild(sep);
+
+    const btn = document.createElement("button");
+    const isLast = (idx === currentNavPath.length - 1);
+    btn.className = "nav-breadcrumb-btn" + (isLast ? " active" : "");
+    btn.textContent = subtag;
+    btn.title = `Navigate to ${currentNavPath.slice(0, idx + 1).join(` ${getCurrentSeparator()} `)}`;
+    btn.onclick = () => {
+      currentNavPath = currentNavPath.slice(0, idx + 1);
+      renderSavedActions();
+    };
+    navBar.appendChild(btn);
+  });
+}
+
 async function renderSavedActions() {
+  renderActionsNavBar();
+
   const grid = document.getElementById("actions-grid");
+  if (!grid) return;
   grid.innerHTML = "";
 
   const saved = await getSavedActions();
+  const sep = getCurrentSeparator();
+  const currentPrefix = getCurrentPrefix();
 
-  // Sort chronologically (latest last)
-  saved.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const categoriesMap = new Map(); // subtag -> array of child actions
+  const directActions = []; // array of action objects at current level
 
   saved.forEach(action => {
+    const tag = action.tag || "";
+    if (currentPrefix === "" || tag.startsWith(currentPrefix)) {
+      const remaining = currentPrefix === "" ? tag : tag.substring(currentPrefix.length);
+      const parts = remaining.split(sep);
+      if (parts.length === 1) {
+        // Direct leaf action at current level
+        directActions.push({
+          ...action,
+          leafLabel: parts[0] || tag
+        });
+      } else if (parts.length > 1) {
+        // Interior category at next level
+        const catName = parts[0];
+        if (!categoriesMap.has(catName)) {
+          categoriesMap.set(catName, []);
+        }
+        categoriesMap.get(catName).push(action);
+      }
+    }
+  });
+
+  // Sort Categories alphabetically A-Z
+  const sortedCategories = Array.from(categoriesMap.keys()).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+
+  // Sort Direct Actions alphabetically A-Z
+  directActions.sort((a, b) =>
+    (a.leafLabel || "").localeCompare(b.leafLabel || "", undefined, { sensitivity: "base" })
+  );
+
+  // 1. Render Categories First (Yellow Chamfered Folder Polygon Buttons)
+  sortedCategories.forEach(catName => {
+    const card = document.createElement("div");
+    card.className = "action-card category-card";
+    card.textContent = catName;
+
+    const childCount = categoriesMap.get(catName).length;
+    setupHoverPreview(card, `Category: "${catName}" (${childCount} action${childCount === 1 ? "" : "s"})`);
+
+    card.onclick = () => {
+      handleCategoryClick(catName);
+    };
+
+    grid.appendChild(card);
+  });
+
+  // 2. Render Actions Next
+  directActions.forEach(action => {
     const card = document.createElement("div");
     card.className = "action-card";
-    card.textContent = action.tag;
+    card.textContent = action.leafLabel;
 
     // Apply macro card background colors if set in database
     if (action.color) {
       card.style.backgroundColor = action.color;
-      // Contrast text colors
       const isBright = ["#2ecc71", "#f1c40f", "#1abc9c", "Yellow", "Green", "Teal"].some(c => action.color.includes(c));
       card.style.color = isBright ? "black" : "white";
     }
 
-    // Hover tooltips for preview bar
-    setupHoverPreview(card, `Macro Preview: "${action.action_text}"`);
+    setupHoverPreview(card, `Macro Preview: "${action.action_text}" (Tag: ${action.tag})`);
 
-    // Click macro behaviour based on Action Mode selector
     card.onclick = async () => {
       executeActionByMode(action.tag, action.action_text);
     };
 
     grid.appendChild(card);
   });
+}
+
+function handleCategoryClick(catName) {
+  const sep = getCurrentSeparator();
+  const fullCatPrefix = getCurrentPrefix() + catName + sep;
+
+  if (activeMode === "Delete") {
+    showCategoryDeleteModal(catName, fullCatPrefix);
+  } else if (activeMode === "Recolor") {
+    showCategoryRecolorModal(catName, fullCatPrefix);
+  } else {
+    // Open category folder in navigation (renderSavedActions calls renderActionsNavBar)
+    currentNavPath.push(catName);
+    renderSavedActions();
+  }
+}
+
+function showCategoryDeleteModal(catName, catPrefix) {
+  const modal = document.getElementById("category-delete-modal");
+  const msg = document.getElementById("category-delete-msg");
+  const btnYes = document.getElementById("btn-category-delete-yes");
+  const btnNo = document.getElementById("btn-category-delete-no");
+  if (!modal) return;
+
+  msg.textContent = `Do you really want to delete the category "${catName}" and everything in it?`;
+  modal.style.display = "flex";
+
+  btnYes.onclick = async () => {
+    modal.style.display = "none";
+    const allActions = await getSavedActions();
+    let count = 0;
+    for (const a of allActions) {
+      if (a.tag && (a.tag.startsWith(catPrefix) || a.tag === catPrefix.slice(0, -1))) {
+        await deleteAction(a.tag);
+        count++;
+      }
+    }
+    addChatMessage("system", `🗑️ Deleted category "${catName}" and ${count} action${count === 1 ? "" : "s"}.`);
+    renderChatLog();
+    renderSavedActions();
+  };
+
+  btnNo.onclick = () => {
+    modal.style.display = "none";
+  };
+}
+
+function showCategoryRecolorModal(catName, catPrefix) {
+  const modal = document.getElementById("category-recolor-modal");
+  const msg = document.getElementById("category-recolor-msg");
+  const btnYes = document.getElementById("btn-category-recolor-yes");
+  const btnNo = document.getElementById("btn-category-recolor-no");
+  if (!modal) return;
+
+  const dropdown = document.getElementById("action-color-select");
+  const chosenColorName = dropdown ? dropdown.value : "Blue";
+  const colorMap = {
+    "Blue": "#1f538d", "Green": "#2ecc71", "Red": "#e74c3c", "Orange": "#e67e22",
+    "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#475569"
+  };
+  const hex = colorMap[chosenColorName] || "#1f538d";
+
+  msg.textContent = `Do you really want to recolor every action in category "${catName}" to ${chosenColorName}?`;
+  modal.style.display = "flex";
+
+  btnYes.onclick = async () => {
+    modal.style.display = "none";
+    const allActions = await getSavedActions();
+    let count = 0;
+    for (const a of allActions) {
+      if (a.tag && (a.tag.startsWith(catPrefix) || a.tag === catPrefix.slice(0, -1))) {
+        await saveAction(a.tag, a.action_text, hex);
+        count++;
+      }
+    }
+    addChatMessage("system", `🎨 Recolored ${count} action${count === 1 ? "" : "s"} in category "${catName}" to ${chosenColorName}.`);
+    renderChatLog();
+    renderSavedActions();
+  };
+
+  btnNo.onclick = () => {
+    modal.style.display = "none";
+  };
+}
+
+async function migrateTagSeparators(oldSep, newSep) {
+  if (!oldSep || !newSep || oldSep === newSep) return;
+  const allActions = await getSavedActions();
+  let changed = 0;
+  for (const action of allActions) {
+    if (action.tag && action.tag.includes(oldSep)) {
+      const newTag = action.tag.split(oldSep).join(newSep);
+      await deleteAction(action.tag);
+      await saveAction(newTag, action.action_text, action.color);
+      changed++;
+    }
+  }
+  if (changed > 0) {
+    console.log(`Migrated ${changed} action tags from separator '${oldSep}' to '${newSep}'`);
+  }
+}
+
+function applySuggestionToEditor(actionText) {
+  const editor = document.getElementById("editor-box");
+  if (!editor) return;
+  editor.value = actionText;
+  editor.selectionStart = editor.selectionEnd = actionText.length;
+  previousCaretPosition = editor.selectionStart;
+  loadedActionTag = null;
+  updatePredictionsAndKeyboard();
+  editor.focus();
 }
 
 async function executeActionByMode(tag, action_text) {
@@ -2366,7 +2694,7 @@ async function executeActionByMode(tag, action_text) {
     executeSendCloud();
   } else if (activeMode === "Recolor") {
     const dropdown = document.getElementById("action-color-select");
-    const chosenColorName = dropdown.value;
+    const chosenColorName = dropdown ? dropdown.value : "Blue";
     const colorMap = {
       "Blue": "#1f538d", "Green": "#2ecc71", "Red": "#e74c3c", "Orange": "#e67e22",
       "Purple": "#9b59b6", "Yellow": "#f1c40f", "Teal": "#1abc9c", "Pink": "#e84393", "Gray": "#475569"
@@ -2426,6 +2754,7 @@ async function executeSendCloud() {
   const haToken = await getSetting("home_assistant_token", "");
 
   const maxAttempts = 3;
+  let success = false;
   let lastErrorMsg = "Unknown network error";
   let responseData = null;
 
@@ -2494,9 +2823,10 @@ async function executeSendCloud() {
   }
 
   if (success && responseData) {
-    await addChatMessage("cloud_ai", responseData.reply);
+    // Update currentSuggestions so macros_summary stays in sync for next cloud request
+    currentSuggestions = responseData.suggestions || [];
+    await addChatMessage("cloud_ai", responseData.reply, responseData.suggestions);
     renderChatLog();
-    renderSuggestions(responseData.suggestions);
 
     // Execute returned client-side actions safely outside retry loop
     if (responseData.client_actions && Array.isArray(responseData.client_actions)) {
@@ -2512,32 +2842,6 @@ async function executeSendCloud() {
     addChatMessage("system", `⚠️ Cloud AI could not connect after ${maxAttempts} attempts: ${lastErrorMsg}. Please try sending again.`);
     renderChatLog();
   }
-}
-
-function renderSuggestions(suggestions) {
-  currentSuggestions = suggestions || [];
-  // Renders suggestions inline inside actions grid
-  const grid = document.getElementById("actions-grid");
-
-  // Clear any previously rendered suggestions to avoid accumulation
-  const existingSuggestions = grid.querySelectorAll(".suggestion-card");
-  existingSuggestions.forEach(el => el.remove());
-
-  suggestions.forEach(sug => {
-    const card = document.createElement("div");
-    card.className = "action-card suggestion-card";
-    card.style.background = "rgba(16, 185, 129, 0.15)";
-    card.style.borderColor = "var(--color-success)";
-    card.style.color = "#fff";
-    card.textContent = sug.tag;
-
-    setupHoverPreview(card, `Suggestion Preview: "${sug.action_text}"`);
-
-    card.onclick = () => {
-      executeActionByMode(sug.tag, sug.action_text);
-    };
-    grid.appendChild(card);
-  });
 }
 
 // --- Client Operational Action Handlers & Active Timers Widget ---
@@ -3367,13 +3671,34 @@ function msgToHtml(msg) {
   return `<span style="font-weight:600;">${prefix}</span> ` + formatMarkdownContent(content);
 }
 
+function createChatMessageElement(msg) {
+  const div = document.createElement("div");
+  div.className = `chat-message ${msg.role}`;
+  div.innerHTML = msgToHtml(msg);
+
+  if (msg.role === "cloud_ai" && msg.suggestions && Array.isArray(msg.suggestions) && msg.suggestions.length > 0) {
+    const sugCont = document.createElement("div");
+    sugCont.className = "chat-suggestions-container";
+    msg.suggestions.forEach(sug => {
+      const btn = document.createElement("button");
+      btn.className = "chat-suggestion-pill";
+      btn.textContent = sug.tag || sug.action_text;
+      btn.title = `Load suggestion into editor: "${sug.action_text}"`;
+      btn.onclick = () => {
+        applySuggestionToEditor(sug.action_text);
+      };
+      sugCont.appendChild(btn);
+    });
+    div.appendChild(sugCont);
+  }
+  return div;
+}
+
 function renderSingleChatMessage(msg) {
   const log = document.getElementById("chat-log-scroll");
   if (!log) return;
 
-  const div = document.createElement("div");
-  div.className = `chat-message ${msg.role}`;
-  div.innerHTML = msgToHtml(msg);
+  const div = createChatMessageElement(msg);
 
   const thinkingDiv = log.querySelector(".thinking");
   if (thinkingDiv) {
@@ -3393,9 +3718,7 @@ async function renderChatLog(force = false) {
     log.innerHTML = "";
     const list = await getChatHistory();
     list.forEach(msg => {
-      const div = document.createElement("div");
-      div.className = `chat-message ${msg.role}`;
-      div.innerHTML = msgToHtml(msg);
+      const div = createChatMessageElement(msg);
       log.appendChild(div);
     });
     log.scrollTop = log.scrollHeight;

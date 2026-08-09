@@ -84,6 +84,10 @@
                 <button id="btn-settings" class="btn btn-settings-icon" title="Preferences Settings"><span class="btn-text-full">⚙️ Settings</span><span class="btn-text-short">⚙️ Set</span></button>
               </div>
             </div>
+            <!-- Middle Navigation Breadcrumb Bar -->
+            <div class="actions-nav-bar" id="actions-nav-bar">
+              <!-- Breadcrumb navigation buttons populated dynamically by app.js -->
+            </div>
             <div class="actions-list" id="actions-grid">
               <!-- Macros are populated dynamically by app.js -->
             </div>
@@ -257,6 +261,11 @@
           </select>
         </div>
 
+        <div class="form-group">
+          <label for="tag-separator-input">Action Tag Separator (Hierarchy Delimiter):</label>
+          <input type="text" id="tag-separator-input" value="|" maxlength="3" style="width: 100%; margin-top: 5px;" placeholder="|">
+        </div>
+
         <div class="form-group backup-restore-buttons" style="flex-direction: column; gap: 8px;">
           <label style="font-weight: 600;">Data Import & Memory Sync:</label>
           <div style="display: flex; gap: 8px;">
@@ -280,6 +289,43 @@
     </div>
   </div>
 
+  <!-- Category Delete Confirmation Modal -->
+  <div class="modal-overlay" id="category-delete-modal" style="display:none; z-index: 10000;">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <h3 style="color: #ef4444;">Delete Category</h3>
+      <p id="category-delete-msg" style="font-size: 15px; color: var(--color-text); margin: 16px 0; line-height: 1.4;">Do you really want to delete the category and everything in it?</p>
+      <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
+        <button id="btn-category-delete-yes" class="btn btn-red" style="flex: 1; font-weight: 700;">Yes, Delete All</button>
+        <button id="btn-category-delete-no" class="btn btn-secondary" style="flex: 1;">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Recolor Confirmation Modal -->
+  <div class="modal-overlay" id="category-recolor-modal" style="display:none; z-index: 10000;">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <h3 style="color: #f59e0b;">Recolor Category Actions</h3>
+      <p id="category-recolor-msg" style="font-size: 15px; color: var(--color-text); margin: 16px 0; line-height: 1.4;">Do you really want to recolor every action in this category?</p>
+      <div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">
+        <button id="btn-category-recolor-yes" class="btn btn-orange" style="flex: 1; font-weight: 700;">Yes, Recolor All</button>
+        <button id="btn-category-recolor-no" class="btn btn-secondary" style="flex: 1;">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag Name Prompt Modal for Save / Save As -->
+  <div class="modal-overlay" id="tag-prompt-modal" style="display:none; z-index: 10000;">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <h3 id="tag-prompt-title">Save Action Macro</h3>
+      <p style="font-size: 14px; color: var(--color-text-muted); margin: 10px 0 14px 0;">Enter a tag or hierarchy path (e.g. category|subcategory|action):</p>
+      <input type="text" id="tag-prompt-input" style="width: 100%; padding: 10px 14px; font-size: 16px; border-radius: 8px; border: 1px solid var(--glass-border); background: #1e293b; color: white; box-sizing: border-box;" placeholder="category|subtag|action">
+      <div style="display: flex; gap: 12px; justify-content: center; margin-top: 18px;">
+        <button id="btn-tag-prompt-save" class="btn btn-primary" style="flex: 1; font-weight: 700;">Save</button>
+        <button id="btn-tag-prompt-cancel" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Import Mode Selection Modal -->
   <div class="modal-overlay" id="import-mode-modal" style="display:none; z-index: 10000;">
     <div class="modal-content" style="max-width: 420px; text-align: center;">
@@ -293,6 +339,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=41"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>
