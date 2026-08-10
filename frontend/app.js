@@ -841,18 +841,62 @@ async function seedDefaults() {
 
     await saveContact("Phil", "phone=555-0199; email=phil@example.com; relationship=Husband");
     await saveContact("Dr. Smith", "phone=555-4321; email=smith@clinic.org; relationship=Dentist");
+  }
 
-    await saveAction("[laughing]", "[laughing] ");
-    await saveAction("Pete", "Pete ");
-    await saveAction("Phil", "Phil ");
-    await saveAction("greetings|hello", "hello ");
-    await saveAction("greetings|please", "please ");
-    await saveAction("greetings|thank you", "thank you ");
-    await saveAction("phrases|TTS okay?", "I'm going to speak to you through this device, if that's okay ");
-    await saveAction("phrases|I would like", "I would like ");
-    await saveAction("smart home|lights|living room", "toggle the living room lights ");
-    await saveAction("smart home|lights|bedroom", "toggle the bedroom lights ");
-    await saveAction("smart home|thermostat|temperature", "check the temperature ");
+  const seededActionsV2 = await getSetting("seeded_actions_v2");
+  if (!seededActionsV2) {
+    await setSetting("seeded_actions_v2", "true");
+
+    const defaultActions = [
+      { tag: "Greetings|hello", text: "hello " },
+      { tag: "Greetings|please", text: "please " },
+      { tag: "Greetings|thank you", text: "thank you " },
+      { tag: "Names|Pete", text: "Pete " },
+      { tag: "Names|Phil", text: "Phil " },
+      { tag: "Names|Emma", text: "Emma " },
+      { tag: "Names|Griffin", text: "Griffin " },
+      { tag: "Names|Niko", text: "Niko " },
+      { tag: "Names|Nopo", text: "Nopo " },
+      { tag: "Misc|I would like", text: "I would like " },
+      { tag: "Misc|TTS okay?", text: "I'm going to speak to you through this device, if that's okay " },
+      { tag: "Smart home|lights|bedroom", text: "toggle the bedroom lights " },
+      { tag: "Smart home|lights|living room", text: "toggle the living room lights " },
+      { tag: "Smart home|thermostat|temperature", text: "check the temperature " },
+      { tag: "please", text: "please " },
+      { tag: "thank you", text: "thank you " },
+      { tag: "TTS Effects|[applause]", text: "[applause] " },
+      { tag: "TTS Effects|[clears throat]", text: "[clears throat] " },
+      { tag: "TTS Effects|[coughs]", text: "[coughs] " },
+      { tag: "TTS Effects|[drawn out]", text: "[drawn out] " },
+      { tag: "TTS Effects|[excited]", text: "[excited] " },
+      { tag: "TTS Effects|[explosion]", text: "[explosion] " },
+      { tag: "TTS Effects|[gasps]", text: "[gasps] " },
+      { tag: "TTS Effects|[gulps]", text: "[gulps] " },
+      { tag: "TTS Effects|[gunshot]", text: "[gunshot] " },
+      { tag: "TTS Effects|[happy]", text: "[happy] " },
+      { tag: "TTS Effects|[laughs harder]", text: "[laughs harder] " },
+      { tag: "TTS Effects|[laughs]", text: "[laughs] " },
+      { tag: "TTS Effects|[long pause]", text: "[long pause] " },
+      { tag: "TTS Effects|[mischievously]", text: "[mischievously] " },
+      { tag: "TTS Effects|[pause]", text: "[pause] " },
+      { tag: "TTS Effects|[rushed]", text: "[rushed] " },
+      { tag: "TTS Effects|[sad]", text: "[sad] " },
+      { tag: "TTS Effects|[sarcastic]", text: "[sarcastic] " },
+      { tag: "TTS Effects|[short pause]", text: "[short pause] " },
+      { tag: "TTS Effects|[shouts]", text: "[shouts] " },
+      { tag: "TTS Effects|[sighs]", text: "[sighs] " },
+      { tag: "TTS Effects|[sings]", text: "[sings] " },
+      { tag: "TTS Effects|[sniffs]", text: "[sniffs] " },
+      { tag: "TTS Effects|[strong French accent]", text: "[strong French accent] " },
+      { tag: "TTS Effects|[tired]", text: "[tired] " },
+      { tag: "TTS Effects|[upset]", text: "[upset] " },
+      { tag: "TTS Effects|[whispers]", text: "[whispers] " },
+      { tag: "TTS Effects|[worried]", text: "[worried] " }
+    ];
+
+    for (const act of defaultActions) {
+      await saveAction(act.tag, act.text);
+    }
   }
 }
 
