@@ -303,9 +303,10 @@ body {
 #mode-copy { background: #2ecc71; color: #000; }
 #mode-cloud { background: #1f538d; color: #fff; }
 
-.mode-btn.active {
-  border-color: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+.mode-btn.active,
+.custom-dropdown-trigger.active {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6) !important;
 }
 
 .dropdown-select {
@@ -342,7 +343,7 @@ body {
   border-radius: 6px;
   padding: 0 18px 0 4px;
   font-family: var(--font-family);
-  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
+  font-size: clamp(0.65rem, 1.2vw, 0.8rem);
   font-weight: 600;
   outline: none;
   cursor: pointer;
@@ -664,7 +665,8 @@ body {
 .btn-green { background: #2ecc71; color: #000; }
 .btn-blue { background: #1f538d; color: #fff; }
 .btn-orange { background: #e67e22; color: #fff; }
-.btn-danger { background: var(--color-danger); }
+.btn-danger { background: var(--color-danger); color: #fff; }
+.btn-red { background: #ef4444; color: #fff; }
 .btn-secondary { background: #e2e8f0; color: #000 !important; }
 .btn-teal { background: var(--color-teal); color: #000 !important; }
 .btn-primary { background: var(--color-primary); color: #000 !important; }

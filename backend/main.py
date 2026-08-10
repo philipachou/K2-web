@@ -271,7 +271,9 @@ def parse_xml_attributes(attrs_str: str) -> dict:
                 raw_val = raw_val[:-1]
             elif quote in raw_val:
                 raw_val = raw_val.rsplit(quote, 1)[0]
-        attrs[key] = raw_val.strip()
+        else:
+            raw_val = raw_val.strip()
+        attrs[key] = raw_val
     return attrs
 
 def sanitize_history_content(text: str) -> str:
@@ -320,9 +322,9 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
         attrs = parse_xml_attributes(attrs_str)
         op_type = attrs.get("type", "").strip()
         
-        # Merge inner tag content if present
-        if content_str and content_str.strip():
-            attrs["content"] = content_str.strip()
+        # Merge inner tag content if present (preserve exact whitespace)
+        if content_str:
+            attrs["content"] = content_str
             
         if op_type == "home_assistant":
             service = attrs.get("service", "")
@@ -483,7 +485,7 @@ def chat(request: ChatRequest):
             " 12. Profile Store: <operation type=\"profile\" action=\"add|set|update|delete\" key=\"Category\" content=\"Text\" old_content=\"...\"/>\n"
             " 13. Contact Store: <operation type=\"contact\" action=\"add|set|update|delete\" key=\"ContactName\" content=\"phone=...; email=...\" old_content=\"...\"/>\n"
             " 14. Setting Store: <operation type=\"setting\" action=\"set\" key=\"SettingKey\" content=\"Value\"/>\n"
-            " 15. Macro Store: <operation type=\"macro\" action=\"add|set|update|delete\" key=\"TagLabel\" content=\"Text\" old_content=\"...\"/>\n\n"
+            " 15. Macro Store: <operation type=\"macro\" action=\"add|set|update|delete\" key=\"TagLabel\" content=\"Text\" color=\"blue|green|red|orange|purple|yellow|teal|pink|gray|#hex\" old_content=\"...\"/>\n\n"
             "VISUAL CHARTS, GRAPHS & IMAGES:\n"
             "When Kay requests a graph, chart, visual data trend (e.g. GDP for last 10 years, weather comparison, stock performance), or image:\n"
             "1. You MUST generate an inline visual image using the <operation type=\"show_image\" url=\"...\" caption=\"...\"/> tag.\n"

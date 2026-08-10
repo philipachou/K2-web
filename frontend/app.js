@@ -1472,8 +1472,7 @@ async function populateElevenLabsDropdown() {
 function updateRecolorButtonColors() {
   const dropdown = document.getElementById("action-color-select");
   const trigger = document.getElementById("color-dropdown-trigger");
-  const recolorBtn = document.getElementById("mode-recolor");
-  if (!dropdown || !recolorBtn) return;
+  if (!dropdown || !trigger) return;
 
   const chosenColorName = dropdown.value;
   const colorMap = {
@@ -1482,14 +1481,9 @@ function updateRecolorButtonColors() {
   };
   const hex = colorMap[chosenColorName] || "#1f538d";
 
-  if (trigger) {
-    trigger.textContent = chosenColorName;
-    trigger.style.backgroundColor = hex;
-    trigger.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
-  }
-
-  recolorBtn.style.backgroundColor = hex;
-  recolorBtn.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
+  trigger.textContent = chosenColorName;
+  trigger.style.backgroundColor = hex;
+  trigger.style.color = ["Yellow", "Teal", "Green"].includes(chosenColorName) ? "black" : "white";
 }
 
 function setupUIBindings() {
@@ -1687,6 +1681,8 @@ function setupUIBindings() {
   document.querySelectorAll(".action-modes .mode-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".action-modes .mode-btn").forEach(b => b.classList.remove("active"));
+      const colorTrigger = document.getElementById("color-dropdown-trigger");
+      if (colorTrigger) colorTrigger.classList.remove("active");
       btn.classList.add("active");
       activeMode = btn.getAttribute("data-mode") || btn.querySelector(".btn-text-full")?.textContent.trim() || "Edit";
     });
@@ -1715,6 +1711,11 @@ function setupUIBindings() {
 
     colorTrigger.addEventListener("click", (e) => {
       e.stopPropagation();
+      // Set Recolor active mode whenever color button is pushed
+      document.querySelectorAll(".action-modes .mode-btn").forEach(b => b.classList.remove("active"));
+      colorTrigger.classList.add("active");
+      activeMode = "Recolor";
+
       const willShow = !colorMenu.classList.contains("show");
       if (willShow) {
         positionMenu();
@@ -1740,6 +1741,11 @@ function setupUIBindings() {
     items.forEach(item => {
       item.addEventListener("click", (e) => {
         e.stopPropagation();
+        // Ensure Recolor active mode remains set
+        document.querySelectorAll(".action-modes .mode-btn").forEach(b => b.classList.remove("active"));
+        if (colorTrigger) colorTrigger.classList.add("active");
+        activeMode = "Recolor";
+
         const val = item.getAttribute("data-value");
         const select = document.getElementById("action-color-select");
         if (select) {
