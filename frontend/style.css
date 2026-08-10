@@ -1090,7 +1090,7 @@ body {
     height: 100vh;
     height: 100dvh;
     height: var(--app-height, 100dvh);
-    padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px)) !important;
+    padding-top: max(56px, calc(env(safe-area-inset-top, 0px) + 50px)) !important;
   }
 
   .labeled-panel.collapsed {
