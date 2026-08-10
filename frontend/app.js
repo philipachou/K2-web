@@ -831,7 +831,7 @@ async function seedDefaults() {
     await setSetting("basins_of_attraction", "0");
     await setSetting("hover_brightness", "1.2");
     await setSetting("tag_separator", "|");
-    await setSetting("biography_text", "Name: Kay. Patient diagnosed with ALS.\nHusband: Phil. Family visits frequently.\nInterests: Loves science fiction and smart home tech.");
+    await setSetting("biography_text", "Name: Kay. Patient diagnosed with ALS.\nHusband: Pete. Family lives nearby and visits frequently.\nInterests: Plants, nature, trolls, mixology.");
 
     await setPersonalSummary([
       { category: "User Info", content: "Name: Kay. Patient diagnosed with ALS." },
@@ -1886,7 +1886,7 @@ function insertTextAtCursor(text) {
   const newPos = start + text.length;
   try {
     target.selectionStart = target.selectionEnd = newPos;
-  } catch (_) {}
+  } catch (_) { }
 
   if (target.id === "editor-box") {
     previousCaretPosition = target.selectionStart;
@@ -1904,10 +1904,10 @@ function deleteChar() {
 
   if (start !== end) {
     target.value = currentText.substring(0, start) + currentText.substring(end);
-    try { target.selectionStart = target.selectionEnd = start; } catch (_) {}
+    try { target.selectionStart = target.selectionEnd = start; } catch (_) { }
   } else if (start > 0) {
     target.value = currentText.substring(0, start - 1) + currentText.substring(start);
-    try { target.selectionStart = target.selectionEnd = start - 1; } catch (_) {}
+    try { target.selectionStart = target.selectionEnd = start - 1; } catch (_) { }
   }
 
   if (target.id === "editor-box") {
@@ -1926,10 +1926,10 @@ function deleteNextChar() {
 
   if (start !== end) {
     target.value = currentText.substring(0, start) + currentText.substring(end);
-    try { target.selectionStart = target.selectionEnd = start; } catch (_) {}
+    try { target.selectionStart = target.selectionEnd = start; } catch (_) { }
   } else if (start < currentText.length) {
     target.value = currentText.substring(0, start) + currentText.substring(start + 1);
-    try { target.selectionStart = target.selectionEnd = start; } catch (_) {}
+    try { target.selectionStart = target.selectionEnd = start; } catch (_) { }
   }
 
   if (target.id === "editor-box") {
@@ -3025,11 +3025,11 @@ function buildImageCard(rawUrl, cap) {
     : "";
   return `<div class="k2-image-card" style="margin-top:10px;margin-bottom:10px;background:#ffffff;padding:14px;border-radius:12px;display:inline-block;max-width:100%;box-shadow:0 4px 12px rgba(0,0,0,.25);text-align:center;">` +
     `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="Open image in new tab" style="display:block;cursor:pointer;text-decoration:none;">` +
-      `<img src="${safeUrl}" alt="${safeCap}" onerror="handleImageLoadError(this,'${safeCap}')" style="max-width:100%;max-height:340px;border-radius:8px;display:block;margin:0 auto;"/>` +
+    `<img src="${safeUrl}" alt="${safeCap}" onerror="handleImageLoadError(this,'${safeCap}')" style="max-width:100%;max-height:340px;border-radius:8px;display:block;margin:0 auto;"/>` +
     `</a>` +
     `${captionHtml}` +
     `<div style="margin-top:6px;text-align:center;"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb;text-decoration:underline;word-break:break-all;" title="${safeUrl}">Open Image URL ↗</a></div>` +
-  `</div>`;
+    `</div>`;
 }
 
 async function processClientAction(action) {
@@ -3683,7 +3683,7 @@ function parseActionsCSV(text) {
     if (!row || row.length === 0) continue;
     const actionText = row[0] !== undefined ? row[0] : "";
     let rest = row.slice(1).filter(s => s !== undefined && s.length > 0);
-    
+
     let color = null;
     if (rest.length > 0) {
       const last = rest[rest.length - 1].trim();
