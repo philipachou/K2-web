@@ -3133,6 +3133,13 @@ async function processClientAction(action) {
 
       await addChatMessage("system", `📱 Prepared SMS text message to ${recipient || "contact"}: "${body}"`);
       renderChatLog();
+    } else if (op === "home_assistant") {
+      const argsParts = Object.keys(data)
+        .filter(k => k !== "type" && k !== "op_type")
+        .map(k => `${k}='${data[k]}'`);
+      const argsSummary = argsParts.join(", ");
+      addChatMessage("system", `🏠 [Home Assistant Operation] Stub called with arguments: ${argsSummary}`);
+      renderChatLog();
     } else if (op === "export_file") {
       handleExportFile(data.filename || "export.txt", data.content || data.text || "");
     } else if (op === "show_image") {

@@ -109,25 +109,44 @@ def inject_text(text: str) -> str:
         thread_local.client_actions.append({"type": "copy", "text": text})
     return f"Injected text: '{text}'"
 
-def control_home_assistant(service: str, entity_id: str) -> str:
+def control_home_assistant(service: str = "", entity_id: str = "", extra_attrs: dict = None) -> str:
     """Control smart home devices connected to Home Assistant.
     
     Args:
-        service: The service to execute, e.g. "turn_on", "turn_off", "toggle", "lock", "unlock".
-        entity_id: The target entity ID, e.g. "light.living_room", "switch.smart_plug", "lock.front_door".
+        service: The service to execute, e.g. "set_temperature", "turn_on", "turn_off", "toggle", "lock", "unlock".
+        entity_id: The target entity ID, e.g. "climate.thermostat", "light.living_room", "switch.smart_plug", "lock.front_door".
+        extra_attrs: Additional XML attribute arguments passed in the operation.
     """
     url = getattr(thread_local, "ha_url", "")
     token = getattr(thread_local, "ha_token", "")
     
+    args_parts = []
+    if service:
+        args_parts.append(f"service='{service}'")
+    if entity_id:
+        args_parts.append(f"entity_id='{entity_id}'")
+        
+    if extra_attrs:
+        for k, v in extra_attrs.items():
+            if k not in ("type", "service", "entity_id"):
+                args_parts.append(f"{k}='{v}'")
+                
+    args_summary = ", ".join(args_parts) if args_parts else "no arguments"
+    msg = f"🏠 [Home Assistant Operation] Stub called with arguments: {args_summary}"
+    
+    if hasattr(thread_local, "client_actions"):
+        thread_local.client_actions.append({"type": "status", "detail": msg})
+        
     if not url or not token:
-        msg = f"[Mock HA] Executed service '{service}' on '{entity_id}' successfully."
-        if hasattr(thread_local, "client_actions"):
-            thread_local.client_actions.append({"type": "status", "detail": msg})
         return msg
         
-    domain = entity_id.split(".")[0]
+    domain = entity_id.split(".")[0] if "." in entity_id else "homeassistant"
     api_url = f"{url}/api/services/{domain}/{service}"
     payload = {"entity_id": entity_id}
+    if extra_attrs:
+        for k, v in extra_attrs.items():
+            if k not in ("type", "service", "entity_id"):
+                payload[k] = v
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -136,12 +155,9 @@ def control_home_assistant(service: str, entity_id: str) -> str:
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=5)
         if response.status_code in [200, 201]:
-            msg = f"Successfully executed {service} on {entity_id}."
-            if hasattr(thread_local, "client_actions"):
-                thread_local.client_actions.append({"type": "status", "detail": f"Home Assistant: {service} on {entity_id}"})
             return msg
         else:
-            return f"Home Assistant service failed: {response.text}"
+            return f"Home Assistant service returned status {response.status_code}: {response.text}"
     except Exception as e:
         return f"Error connecting to Home Assistant: {str(e)}"
 
@@ -329,8 +345,7 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
         if op_type == "home_assistant":
             service = attrs.get("service", "")
             entity_id = attrs.get("entity_id", "")
-            if service and entity_id:
-                control_home_assistant(service, entity_id)
+            control_home_assistant(service, entity_id, extra_attrs=attrs)
         elif op_type == "speak":
             phrase = attrs.get("phrase", "") or attrs.get("content", "")
             if phrase:
@@ -467,11 +482,12 @@ def chat(request: ChatRequest):
             "You are K2, an intelligent, highly capable assistive AI companion for Kay. "
             "Kay reads proficiently. You possess comprehensive general knowledge across all domains (including quantum physics, science, history, technology, literature, and general conversation). "
             "You have access to Google Search for live web information (weather, AQI, news, citations) and sandboxed Python Code Execution for math, list sorting, word counting, and data processing.\n\n"
-            "OPERATIONAL ACTIONS:\n"
-            "When Kay explicitly or implicitly requests an operational action (including follow-ups like 'Send it again', 'Text him again', 'Do it again'), you MUST include a structured XML <operation> tag inside your response. "
-            "NEVER claim to have performed, sent, or repeated an action without including the corresponding <operation .../> tag.\n"
+            "OPERATIONAL ACTIONS & SMART HOME CONTROL:\n"
+            "When Kay explicitly or implicitly requests an operational action (including smart home, thermostat, or temperature requests like 'lower the temperature', 'set heat to 68', 'turn on lights', or follow-ups like 'Send it again', 'Do it again'), you MUST include a structured XML <operation> tag inside your response. "
+            "NEVER claim to have performed an action without including the corresponding <operation .../> tag. "
+            "You have FULL control over Home Assistant smart home devices (thermostats, climate, lights, switches, locks). NEVER refuse a smart home request or claim you cannot adjust the temperature or control devices!\n"
             "Supported operation schemas:\n"
-            "  1. Home Assistant: <operation type=\"home_assistant\" service=\"turn_on|turn_off|toggle|lock|unlock\" entity_id=\"...\"/>\n"
+            "  1. Home Assistant (Smart Home / Thermostat): <operation type=\"home_assistant\" service=\"set_temperature|turn_on|turn_off|toggle|lock|unlock|set_preset_mode\" entity_id=\"climate.thermostat|light.living_room|...\" temperature=\"68\"/> (Always pass service, entity_id, and any relevant argument attributes like temperature='68')\n"
             "  2. Text-to-Speech: <operation type=\"speak\" phrase=\"Text to speak out loud\"/>\n"
             "  3. Inject Text: <operation type=\"inject\" text=\"Text to inject/type\"/>\n"
             "  4. Web Share: <operation type=\"share\" title=\"Title\" text=\"Text to share\" url=\"...\"/>\n"
