@@ -3123,9 +3123,21 @@ async function processClientAction(action) {
       addChatMessage("system", `📧 Opened email draft to ${recipient || "recipient"}`);
       renderChatLog();
     } else if (op === "sms") {
-      const recipient = data.recipient || data.phone || "";
+      const recipient = (data.recipient || data.phone || "").trim();
       const body = data.message || data.text || data.content || "";
-      const smsUrl = `sms:${encodeURIComponent(recipient)}${body ? `?body=${encodeURIComponent(body)}` : ''}`;
+      
+      // Format phone number for RFC 5724 sms: protocol (preserve leading + without turning it into %2B)
+      const cleanPhone = recipient.replace(/[^\d+]/g, "") || recipient;
+      const smsUrl = `sms:${cleanPhone}${body ? `?body=${encodeURIComponent(body)}` : ''}`;
+
+      // Automatically copy SMS body to clipboard as fallback for OS apps like Phone Link
+      if (body) {
+        try {
+          await navigator.clipboard.writeText(body);
+        } catch (err) {
+          console.warn("Clipboard write failed:", err);
+        }
+      }
 
       // Attempt native SMS protocol navigation
       try {
@@ -3134,7 +3146,8 @@ async function processClientAction(action) {
         console.warn("SMS protocol launch failed:", e);
       }
 
-      await addChatMessage("system", `📱 Prepared SMS text message to ${recipient || "contact"}: "${body}"`);
+      const clipNotice = body ? " (text copied to clipboard for pasting)" : "";
+      await addChatMessage("system", `📱 Prepared SMS text message to ${recipient || "contact"}: "${body}"${clipNotice}`);
       renderChatLog();
     } else if (op === "home_assistant") {
       const argsParts = Object.keys(data)
