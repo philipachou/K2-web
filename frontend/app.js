@@ -1562,7 +1562,7 @@ function setupUIBindings() {
   editor.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      executeSendCloud();
+      executeSendCloud(true);
     }
   });
 
@@ -1634,7 +1634,7 @@ function setupUIBindings() {
     }
   });
 
-  document.getElementById("btn-cloud").addEventListener("click", executeSendCloud);
+  document.getElementById("btn-cloud").addEventListener("click", () => executeSendCloud(false));
 
   function promptForTag(title, defaultPrefix) {
     return new Promise((resolve) => {
@@ -2756,7 +2756,7 @@ async function executeActionByMode(tag, action_text) {
 }
 
 // --- Gemini Cloud Chat & Tool Action Routing ---
-async function executeSendCloud() {
+async function executeSendCloud(clearEditor = true) {
   const editor = document.getElementById("editor-box");
   const text = editor.value;
   if (!text.trim()) {
@@ -2767,10 +2767,13 @@ async function executeSendCloud() {
 
   addChatMessage("user", text);
   renderChatLog();
-  editor.value = "";
-  previousCaretPosition = 0;
-  loadedActionTag = null; // Clear macro selection
-  updatePredictionsAndKeyboard();
+
+  if (clearEditor) {
+    editor.value = "";
+    previousCaretPosition = 0;
+    loadedActionTag = null; // Clear macro selection
+    updatePredictionsAndKeyboard();
+  }
 
   // Show live "Thinking..." bubble in chat log
   const log = document.getElementById("chat-log-scroll");
