@@ -3646,32 +3646,28 @@ function parseCSVGeneric(text) {
 
 function parseContactsCSV(fileContent) {
   const rows = parseCSVGeneric(fileContent);
-  if (!rows || rows.length === 0) return [];
-  const contacts = [];
-  let nameIdx = 0;
-  let valIdx = 1;
+  if (!rows || rows.length === 0) return null;
 
-  if (rows.length > 0) {
-    const header = rows[0].map(h => h.trim().toLowerCase());
-    if (header.includes("name") || header.includes("value")) {
-      const hNameIdx = header.findIndex(h => h === "name" || h === "file as" || h === "full name");
-      const hValIdx = header.findIndex(h => h === "value" || h === "details");
-      if (hNameIdx !== -1) nameIdx = hNameIdx;
-      if (hValIdx !== -1) valIdx = hValIdx;
-      rows.shift();
+  const header = rows[0].map(h => h.trim());
+  const headerLower = header.map(h => h.toLowerCase());
+
+  // Check if this is a 2-column K2 Contacts Export CSV ("Name" and "Value")
+  if (header.length === 2 && headerLower[0] === "name" && headerLower[1] === "value") {
+    const contacts = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || r.length === 0) continue;
+      const name = r[0] ? r[0].trim() : "";
+      const value = r[1] ? r[1].trim() : "";
+      if (name) {
+        contacts.push({ name, value });
+      }
     }
+    return contacts;
   }
 
-  for (const r of rows) {
-    if (!r || r.length === 0) continue;
-    const name = r[nameIdx] !== undefined ? r[nameIdx].trim() : "";
-    const value = r[valIdx] !== undefined ? r[valIdx].trim() : "";
-    if (name) {
-      contacts.push({ name, value });
-    }
-  }
-
-  return contacts;
+  // For multi-column CSVs (like Google Contacts CSV exports or vCard files), return null to use backend parser
+  return null;
 }
 
 function parseActionsCSV(text) {
