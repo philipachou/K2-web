@@ -985,11 +985,13 @@ def parse_csv_contacts(file_text: str) -> list[dict]:
         for row in reader:
             if not row:
                 continue
-            first = (row.get("First Name") or row.get("Given Name") or "").strip()
-            middle = (row.get("Middle Name") or "").strip()
-            last = (row.get("Last Name") or row.get("Family Name") or "").strip()
-            org = (row.get("Organization Name") or row.get("Company") or "").strip()
-            file_as = (row.get("File As") or row.get("Name") or "").strip()
+            row_map = {k.strip(): (v or "").strip() for k, v in row.items() if k}
+
+            first = row_map.get("First Name") or row_map.get("Given Name") or ""
+            middle = row_map.get("Middle Name") or ""
+            last = row_map.get("Last Name") or row_map.get("Family Name") or ""
+            org = row_map.get("Organization Name") or row_map.get("Company") or row_map.get("Organization") or ""
+            file_as = row_map.get("File As") or row_map.get("Name") or row_map.get("Full Name") or ""
 
             name_parts = [p for p in [first, middle, last] if p]
             name = " ".join(name_parts) if name_parts else (org or file_as)
@@ -997,27 +999,41 @@ def parse_csv_contacts(file_text: str) -> list[dict]:
                 continue
 
             fields = []
-            for i in range(1, 6):
-                email = (row.get(f"E-mail {i} - Value") or row.get(f"Email {i}") or (row.get("Email") if i == 1 else "") or "").strip()
-                if email and f"email={email}" not in fields:
-                    fields.append(f"email={email}")
 
-            for i in range(1, 6):
-                phone = (row.get(f"Phone {i} - Value") or row.get(f"Phone {i}") or (row.get("Phone") if i == 1 else "") or "").strip()
-                if phone and f"phone={phone}" not in fields:
-                    fields.append(f"phone={phone}")
+            # Email candidates (Google, Outlook, Apple, Generic)
+            email_candidates = [
+                row_map.get("E-mail 1 - Value"), row_map.get("E-mail 2 - Value"), row_map.get("E-mail 3 - Value"),
+                row_map.get("E-mail Address"), row_map.get("E-mail 2 Address"), row_map.get("E-mail 3 Address"),
+                row_map.get("Email Address"), row_map.get("Email 1"), row_map.get("Email 2"), row_map.get("Email"),
+                row_map.get("Email 1 - Value"), row_map.get("Email 2 - Value")
+            ]
+            for em in email_candidates:
+                if em and f"email={em}" not in fields:
+                    fields.append(f"email={em}")
 
-            rel_val = (row.get("Relation 1 - Value") or row.get("Relationship") or "").strip()
-            rel_label = (row.get("Relation 1 - Label") or "").strip()
+            # Phone candidates (Google, Outlook, Apple, Generic)
+            phone_candidates = [
+                row_map.get("Phone 1 - Value"), row_map.get("Phone 2 - Value"), row_map.get("Phone 3 - Value"),
+                row_map.get("Mobile Phone"), row_map.get("Business Phone"), row_map.get("Home Phone"), row_map.get("Primary Phone"),
+                row_map.get("Phone 1"), row_map.get("Phone 2"), row_map.get("Phone"), row_map.get("Cell Phone")
+            ]
+            for ph in phone_candidates:
+                if ph and not ph.startswith("*") and f"phone={ph}" not in fields:
+                    fields.append(f"phone={ph}")
+
+            rel_val = row_map.get("Relation 1 - Value") or row_map.get("Relationship") or ""
+            rel_label = row_map.get("Relation 1 - Label") or ""
             if rel_val:
                 fields.append(f"relationship={rel_label or 'Relation'}: {rel_val}")
 
-            notes = (row.get("Notes") or "").replace("\n", " ").strip()
+            notes = (row_map.get("Notes") or "").replace("\n", " ").strip()
             if notes:
                 fields.append(f"notes={notes[:200]}")
 
-            val_str = "; ".join(fields)
-            if val_str:
+            direct_val = row_map.get("Value") or ""
+            val_str = direct_val if direct_val else "; ".join(fields)
+
+            if val_str or name:
                 items.append({"name": name, "value": val_str})
     except Exception as e:
         print("CSV parse helper notice:", e)
