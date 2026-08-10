@@ -1302,6 +1302,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       updateToolbarLayouts();
     }, 100);
   });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => {
+      updateAppViewportHeight();
+      updateToolbarLayouts();
+    });
+    window.visualViewport.addEventListener("scroll", () => {
+      updateAppViewportHeight();
+    });
+  }
   updateAppViewportHeight();
   setTimeout(updateToolbarLayouts, 50);
 
@@ -1315,7 +1324,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function updateAppViewportHeight() {
-  const vh = window.innerHeight;
+  const vv = window.visualViewport;
+  const vh = vv ? vv.height : window.innerHeight;
   document.documentElement.style.setProperty('--app-height', `${vh}px`);
 }
 
