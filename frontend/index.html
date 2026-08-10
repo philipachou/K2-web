@@ -169,7 +169,32 @@
           <label for="biography-text">Personal Profile (Free-Form Notes):</label>
           <textarea id="biography-text" placeholder="Write profile facts, relationships, interests, routines here..."></textarea>
           <button id="btn-compile" class="btn btn-teal" style="margin-top: 5px; width: 100%;">Compile Profile from Text</button>
-          <input type="file" id="profile-file-input" style="display: none;" accept=".txt">
+        </div>
+
+        <div class="form-group backup-restore-buttons" style="flex-direction: column; gap: 8px;">
+          <label style="font-weight: 600;">Data Operations (Import & Export):</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <!-- Row 1 (Profile) -->
+            <button id="btn-import-profile-file" class="btn btn-teal">📁 Import Profile (Text)</button>
+            <button id="btn-sync-memory" class="btn btn-primary">🧠 Update Profile from Chat Log</button>
+
+            <!-- Row 2 (Contacts) -->
+            <button id="btn-import-contacts-file" class="btn btn-teal">📇 Import Contacts (CSV)</button>
+            <button id="btn-export-contacts-csv" class="btn btn-primary">📤 Export Contacts (CSV)</button>
+
+            <!-- Row 3 (Actions) -->
+            <button id="btn-import-actions-csv" class="btn btn-teal">⚡ Import Actions (CSV)</button>
+            <button id="btn-export-actions-csv" class="btn btn-primary">📤 Export Actions (CSV)</button>
+
+            <!-- Row 4 (System Backup) -->
+            <button id="btn-import-config" class="btn btn-teal">📥 Import Config (JSON)</button>
+            <button id="btn-export-config" class="btn btn-primary">⚙️ Export Config (JSON)</button>
+          </div>
+
+          <input type="file" id="profile-file-input" style="display: none;" accept=".txt,.md,.json">
+          <input type="file" id="contacts-file-input" style="display: none;" accept=".csv,.vcf,.json,.txt">
+          <input type="file" id="actions-csv-file-input" style="display: none;" accept=".csv,.txt">
+          <input type="file" id="import-file-input" style="display: none;" accept=".json">
         </div>
 
         <div class="form-group row-group">
@@ -265,25 +290,7 @@
           <input type="text" id="tag-separator-input" value="|" maxlength="3" style="width: 100%; margin-top: 5px;" placeholder="|">
         </div>
 
-        <div class="form-group backup-restore-buttons" style="flex-direction: column; gap: 8px;">
-          <label style="font-weight: 600;">Data Operations (Import & Export):</label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <!-- Row 1: Profile & Contacts -->
-            <button id="btn-import-profile-file" class="btn btn-teal">📁 Import Profile / Contacts</button>
-            <button id="btn-export-profile-file" class="btn btn-primary">📤 Export Profile / Contacts</button>
-            <!-- Row 2: Action Macros CSV -->
-            <button id="btn-import-actions-csv" class="btn btn-teal">⚡ Import Actions (CSV)</button>
-            <button id="btn-export-actions-csv" class="btn btn-primary">📤 Export Actions (CSV)</button>
-            <!-- Row 3: System Config JSON -->
-            <button id="btn-import-config" class="btn btn-teal">📥 Import Config (JSON)</button>
-            <button id="btn-export-config" class="btn btn-primary">⚙️ Export Config (JSON)</button>
-          </div>
-          <button id="btn-sync-memory" class="btn btn-primary" style="width: 100%; margin-top: 4px;">🧠 Sync Memory Now</button>
 
-          <input type="file" id="contacts-file-input" style="display: none;" accept=".txt,.csv,.vcf,.json">
-          <input type="file" id="actions-csv-file-input" style="display: none;" accept=".csv,.txt">
-          <input type="file" id="import-file-input" style="display: none;" accept=".json">
-        </div>
       </div>
 
       <div class="modal-footer">
@@ -342,6 +349,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=51"></script>
+  <script src="app.js?v=57"></script>
 </body>
 </html>

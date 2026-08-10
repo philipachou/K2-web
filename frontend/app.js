@@ -3532,14 +3532,228 @@ async function exportConfiguration() {
       contacts: contactsReq ? contactsReq.result : [],
       chat_history: chatReq.result
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `k2_web_config_${new Date().toISOString().split('T')[0]}.json`;
+    const dateStr = new Date().toISOString().split("T")[0];
+    a.download = `k2_web_config_${dateStr}.json`;
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
   };
+}
+
+async function exportContactsCSV() {
+  const contactsList = await getContacts();
+  if (!contactsList || contactsList.length === 0) {
+    alert("No contacts directory entries available to export.");
+    return;
+  }
+
+  const csvLines = ["Name,Value"];
+
+  // Sort contacts alphabetically by name
+  contactsList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  contactsList.forEach(c => {
+    const name = c.name || "";
+    const value = c.value || "";
+    const rawFields = [name, value];
+    const escapedFields = rawFields.map(f => {
+      const str = String(f);
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    });
+    csvLines.push(escapedFields.join(","));
+  });
+
+  const csvContent = csvLines.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toISOString().split("T")[0];
+  a.download = `k2_contacts_export_${dateStr}.csv`;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
+
+  addChatMessage("system", `📇 Exported ${contactsList.length} contact${contactsList.length === 1 ? "" : "s"} to CSV.`);
+  renderChatLog();
+}
+
+function parseCSVGeneric(text) {
+  const rows = [];
+  let currentRow = [];
+  let currentField = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (i + 1 < text.length && text[i + 1] === '"') {
+          currentField += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        currentField += c;
+      }
+    } else {
+      if (c === '"' && currentField.length === 0) {
+        inQuotes = true;
+      } else if (c === ',') {
+        currentRow.push(currentField);
+        currentField = "";
+      } else if (c === '\r') {
+        if (i + 1 < text.length && text[i + 1] === '\n') continue;
+        currentRow.push(currentField);
+        if (currentRow.some(f => f.length > 0)) rows.push(currentRow);
+        currentRow = [];
+        currentField = "";
+      } else if (c === '\n') {
+        currentRow.push(currentField);
+        if (currentRow.some(f => f.length > 0)) rows.push(currentRow);
+        currentRow = [];
+        currentField = "";
+      } else {
+        currentField += c;
+      }
+    }
+  }
+
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField);
+    if (currentRow.some(f => f.length > 0)) rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+function parseContactsCSV(fileContent) {
+  const rows = parseCSVGeneric(fileContent);
+  if (!rows || rows.length === 0) return [];
+  const contacts = [];
+  let nameIdx = 0;
+  let valIdx = 1;
+
+  if (rows.length > 0) {
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    if (header.includes("name") || header.includes("value")) {
+      const hNameIdx = header.findIndex(h => h === "name" || h === "file as" || h === "full name");
+      const hValIdx = header.findIndex(h => h === "value" || h === "details");
+      if (hNameIdx !== -1) nameIdx = hNameIdx;
+      if (hValIdx !== -1) valIdx = hValIdx;
+      rows.shift();
+    }
+  }
+
+  for (const r of rows) {
+    if (!r || r.length === 0) continue;
+    const name = r[nameIdx] !== undefined ? r[nameIdx].trim() : "";
+    const value = r[valIdx] !== undefined ? r[valIdx].trim() : "";
+    if (name) {
+      contacts.push({ name, value });
+    }
+  }
+
+  return contacts;
+}
+
+function parseActionsCSV(text) {
+  const rows = parseCSVGeneric(text);
+  const actions = [];
+  const sep = getCurrentSeparator();
+
+  for (const row of rows) {
+    if (!row || row.length === 0) continue;
+    const actionText = row[0] !== undefined ? row[0] : "";
+    let rest = row.slice(1).filter(s => s !== undefined && s.length > 0);
+    
+    let color = null;
+    if (rest.length > 0) {
+      const last = rest[rest.length - 1].trim();
+      if (last.startsWith("#") || ["blue", "green", "red", "orange", "purple", "yellow", "teal", "pink", "gray"].includes(last.toLowerCase())) {
+        color = last;
+        rest = rest.slice(0, -1);
+      }
+    }
+
+    const tag = rest.length > 0 ? rest.join(sep) : actionText;
+
+    if (tag && actionText !== undefined) {
+      actions.push({ tag, action_text: actionText, color });
+    }
+  }
+
+  return actions;
+}
+
+async function exportActionsCSV() {
+  const actions = await getSavedActions();
+  if (!actions || actions.length === 0) {
+    alert("No action macros available to export.");
+    return;
+  }
+
+  const sep = getCurrentSeparator();
+  const csvLines = [];
+
+  actions.sort((a, b) => (a.tag || "").localeCompare(b.tag || ""));
+
+  actions.forEach(act => {
+    const text = act.action_text || "";
+    const tag = act.tag || "";
+    const color = act.color || "";
+    const subtags = tag.length > 0 ? tag.split(sep) : ["Uncategorized"];
+
+    const rawFields = [text, ...subtags];
+    if (color) {
+      rawFields.push(color);
+    }
+
+    const escapedFields = rawFields.map(f => {
+      const str = String(f);
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    });
+
+    csvLines.push(escapedFields.join(","));
+  });
+
+  const csvContent = csvLines.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toISOString().split("T")[0];
+  a.download = `k2_actions_export_${dateStr}.csv`;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
+
+  addChatMessage("system", `⚡ Exported ${actions.length} action macro${actions.length === 1 ? "" : "s"} to CSV.`);
+  renderChatLog();
 }
 
 async function importConfiguration(file) {
@@ -3846,6 +4060,33 @@ function setupBulkImportHandlers() {
     };
   }
 
+  const btnExportContacts = document.getElementById("btn-export-contacts-csv");
+  if (btnExportContacts) {
+    btnExportContacts.onclick = exportContactsCSV;
+  }
+
+  const btnExportActions = document.getElementById("btn-export-actions-csv");
+  if (btnExportActions) {
+    btnExportActions.onclick = exportActionsCSV;
+  }
+
+  const btnImportActions = document.getElementById("btn-import-actions-csv");
+  const actionsCsvInput = document.getElementById("actions-csv-file-input");
+  if (btnImportActions && actionsCsvInput) {
+    btnImportActions.onclick = () => {
+      actionsCsvInput.value = "";
+      actionsCsvInput.click();
+    };
+    actionsCsvInput.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        pendingImportType = "actions";
+        pendingImportFile = e.target.files[0];
+        pendingImportText = null;
+        showImportModeModal("Import Action Macros (CSV)");
+      }
+    };
+  }
+
   const btnModeReplace = document.getElementById("btn-mode-replace");
   const btnModeMerge = document.getElementById("btn-mode-merge");
   const btnModeCancel = document.getElementById("btn-mode-cancel");
@@ -3895,6 +4136,75 @@ async function executeBulkFileImport(mode) {
 
   if (!fileContent.trim()) {
     alert("No content available for import.");
+    return;
+  }
+
+  if (targetStore === "contacts") {
+    try {
+      let items = parseContactsCSV(fileContent);
+      if (!items || items.length === 0) {
+        const list = mode === "merge" ? await getContacts() : [];
+        const existingContext = list.map(c => `${c.name}: ${c.value}`).join("\n");
+        const res = await fetch("/api/parse-bulk-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file_content: fileContent,
+            target_store: "contacts",
+            mode: mode,
+            existing_context: existingContext
+          })
+        });
+        const data = await res.json();
+        items = (data && Array.isArray(data.items)) ? data.items : (Array.isArray(data) ? data : []);
+      }
+
+      if (items && items.length > 0) {
+        if (mode === "replace") {
+          await setContacts(items);
+        } else {
+          for (const item of items) {
+            if (item.name) await saveContact(item.name, item.value || "");
+          }
+        }
+        await addChatMessage("system", `📇 Imported ${items.length} contact${items.length === 1 ? "" : "s"} (${mode} mode)`);
+        renderChatLog();
+        alert(`📇 Successfully imported ${items.length} contacts (${mode} mode)!`);
+      } else {
+        alert("No contact entries found in file.");
+      }
+    } catch (err) {
+      alert("Contacts import failed: " + err.message);
+    }
+    return;
+  }
+
+  if (targetStore === "actions") {
+    try {
+      const items = parseActionsCSV(fileContent);
+      let count = 0;
+
+      if (mode === "replace") {
+        const existing = await getSavedActions();
+        for (const a of existing) {
+          await deleteAction(a.tag);
+        }
+      }
+
+      for (const item of items) {
+        if (item.tag && item.action_text !== undefined) {
+          await saveAction(item.tag, item.action_text, item.color);
+          count++;
+        }
+      }
+
+      await addChatMessage("system", `⚡ Imported ${count} action macro${count === 1 ? "" : "s"} (${mode} mode).`);
+      renderChatLog();
+      renderSavedActions();
+      alert(`⚡ Successfully imported ${count} action macros (${mode} mode)!`);
+    } catch (err) {
+      alert("Action macro import failed: " + err.message);
+    }
     return;
   }
 
