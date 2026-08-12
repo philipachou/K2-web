@@ -1683,9 +1683,11 @@ function recalculateLayoutHeights() {
 
   let H_topmin;
   if (is_wide) {
-    H_topmin = Math.max(CF + CV_min, AF + AV_min);
+    H_topmin = Math.max(c_active ? (CF + CV_min) : LABEL_BAR_H, a_active ? (AF + AV_min) : LABEL_BAR_H);
   } else {
-    H_topmin = (CF + CV_min) + (AF + AV_min);
+    const CV_eff = c_active ? Math.max(CV_min, 120) : LABEL_BAR_H;
+    const AV_eff = a_active ? Math.max(AV_min, 120) : LABEL_BAR_H;
+    H_topmin = CV_eff + AV_eff;
   }
 
   // ── Step 3: Minimum app height & H_excess ────────────────────────────
@@ -1809,7 +1811,8 @@ function recalculateLayoutHeights() {
 
   // ── Drag-slide & upper-workspace scroll state ─────────────────────────
   if (upperWorkspace) {
-    upperWorkspace.style.overflowY = H_excess < 0 ? 'auto' : 'hidden';
+    const isOverflowing = H_excess < 0 || upperWorkspace.scrollHeight > upperWorkspace.clientHeight;
+    upperWorkspace.style.overflowY = isOverflowing ? 'auto' : 'hidden';
   }
   if (appCont) {
     appCont.style.transform = '';
