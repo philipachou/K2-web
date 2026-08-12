@@ -1721,12 +1721,14 @@ function recalculateLayoutHeights() {
         chatPanel.style.height = '100%';
         chatPanel.style.minHeight = '0px';
         chatPanel.style.maxHeight = '100%';
-        chatPanel.style.flex = '1 1 50%';
+        chatPanel.style.minWidth = '0px';
+        chatPanel.style.maxWidth = '50%';
+        chatPanel.style.flex = '1 1 0px';
         const chatBody = chatPanel.querySelector('.chat-log');
         if (chatBody) {
           chatBody.style.height = `${Math.round(topRowH - CF)}px`;
           chatBody.style.flex = '1 1 0px';
-          chatBody.style.overflowY = 'auto';
+          chatBody.style.overflowY = H_excess <= 0 ? 'hidden' : 'auto';
         }
       } else {
         applyPanelHeight(chatPanel, LABEL_BAR_H);
@@ -1736,12 +1738,14 @@ function recalculateLayoutHeights() {
         actionsPanel.style.height = '100%';
         actionsPanel.style.minHeight = '0px';
         actionsPanel.style.maxHeight = '100%';
-        actionsPanel.style.flex = '1 1 50%';
+        actionsPanel.style.minWidth = '0px';
+        actionsPanel.style.maxWidth = '50%';
+        actionsPanel.style.flex = '1 1 0px';
         const actionsList = actionsPanel.querySelector('.actions-list');
         if (actionsList) {
           actionsList.style.height = `${Math.round(topRowH - AF)}px`;
           actionsList.style.flex = '1 1 0px';
-          actionsList.style.overflowY = 'auto';
+          actionsList.style.overflowY = H_excess <= 0 ? 'hidden' : 'auto';
         }
       } else {
         applyPanelHeight(actionsPanel, LABEL_BAR_H);
@@ -1766,7 +1770,7 @@ function recalculateLayoutHeights() {
       if (chatBody) {
         chatBody.style.height = `${Math.round(CV)}px`;
         chatBody.style.flex = '1 1 0px';
-        chatBody.style.overflowY = 'auto';
+        chatBody.style.overflowY = H_excess <= 0 ? 'hidden' : 'auto';
       }
     } else {
       applyPanelHeight(chatPanel, LABEL_BAR_H);
@@ -1778,7 +1782,7 @@ function recalculateLayoutHeights() {
       if (actionsList) {
         actionsList.style.height = `${Math.round(AV)}px`;
         actionsList.style.flex = '1 1 0px';
-        actionsList.style.overflowY = 'auto';
+        actionsList.style.overflowY = H_excess <= 0 ? 'hidden' : 'auto';
       }
     } else {
       applyPanelHeight(actionsPanel, LABEL_BAR_H);
@@ -1869,21 +1873,21 @@ function adjustEditorBoxHeight() {
 }
 
 function updateToolbarLayouts() {
-  const minW = settings.min_target_width || 50;
+  const minW = settings.min_target_width || 40;
+  const isMobile = window.innerWidth <= 768;
 
   // 1. Edit Toolbar
   const editToolbar = document.querySelector(".edit-toolbar");
   if (editToolbar) {
     const buttons = editToolbar.querySelectorAll(".btn");
     buttons.forEach(btn => {
-      btn.style.flex = "0 0 auto";
-      btn.style.maxWidth = "none";
-      btn.style.minWidth = `${minW}px`;
+      btn.style.flex = "0 1 auto";
+      btn.style.minWidth = "0px";
       const full = btn.querySelector(".btn-text-full");
       const short = btn.querySelector(".btn-text-short");
       if (full && short) {
-        full.style.display = "inline";
-        short.style.display = "none";
+        full.style.display = isMobile ? "none" : "inline";
+        short.style.display = isMobile ? "inline" : "none";
       }
     });
   }
@@ -1893,14 +1897,13 @@ function updateToolbarLayouts() {
   if (actionControls) {
     const items = actionControls.querySelectorAll(".mode-btn, .btn-settings-icon, .custom-dropdown");
     items.forEach(item => {
-      item.style.flex = "0 0 auto";
-      item.style.maxWidth = "none";
-      item.style.minWidth = `${minW}px`;
+      item.style.flex = "0 1 auto";
+      item.style.minWidth = "0px";
       const full = item.querySelector(".btn-text-full");
       const short = item.querySelector(".btn-text-short");
       if (full && short) {
-        full.style.display = "inline";
-        short.style.display = "none";
+        full.style.display = isMobile ? "none" : "inline";
+        short.style.display = isMobile ? "inline" : "none";
       }
     });
   }

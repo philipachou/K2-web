@@ -27,13 +27,17 @@
   padding: 0;
 }
 
-body {
+html, body {
   font-family: var(--font-family);
   background-color: var(--bg-app);
   color: var(--color-text);
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  overflow: hidden !important;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 /* --- Multi-Pane Stacked Row Layout --- */
@@ -44,21 +48,31 @@ body {
   height: 100dvh;
   height: var(--app-height, 100dvh);
   max-height: var(--app-height, 100dvh);
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   padding: max(12px, calc(env(safe-area-inset-top, 0px) + 8px)) 8px max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px)) 8px;
   gap: 0 !important;
-  overflow: hidden;
+  overflow: hidden !important;
   box-sizing: border-box;
-  transition: padding-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overscroll-behavior: none;
 }
 
 .upper-workspace {
   flex: 1 1 0px;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0;
-  overflow: hidden;
+  overflow-x: hidden !important;
+  overflow-y: hidden;
+  touch-action: pan-y;
 }
 
 /* --- Standardized Panel Boundary System --- */
@@ -141,11 +155,15 @@ body {
 
 /* Labeled Panel System */
 .labeled-panel {
-  display: flex;
-  flex-direction: row;
+  display: flex !important;
+  flex-direction: row !important;
   align-items: stretch;
   gap: 0;
-  overflow: hidden;
+  overflow: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .panel-label {
@@ -164,17 +182,22 @@ body {
   transform: rotate(180deg);
   white-space: nowrap;
   user-select: none;
-  flex-shrink: 0;
-  width: 30px;
+  flex: 0 0 30px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
   text-align: center;
   box-sizing: border-box;
 }
 
 .panel-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 0 !important;
+  overflow: hidden !important;
 }
 
 .chat-panel {
@@ -262,8 +285,10 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   gap: var(--button-gap-x, 4px);
-  width: 100%;
-  overflow-x: auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
   scrollbar-width: none; /* Hide scrollbar for cleaner look */
   -ms-overflow-style: none;
   touch-action: pan-x !important;
@@ -282,7 +307,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--button-gap-x, 4px);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .mode-btn {
@@ -295,9 +321,10 @@ body {
   font-size: clamp(0.65rem, 1.2vw, 0.8rem);
   font-weight: 600;
   transition: all 0.15s ease;
-  flex: 0 0 auto;
+  flex: 0 1 auto !important;
   min-height: var(--min-target-height);
-  min-width: var(--min-target-width);
+  min-width: 0 !important;
+  max-width: 100% !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -419,14 +446,15 @@ body {
 
 .actions-nav-bar {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--button-gap-x, 4px);
   padding: 0 6px;
   background: #334155;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
   flex-shrink: 0;
   height: var(--min-target-height);
   min-height: var(--min-target-height);
@@ -436,6 +464,9 @@ body {
   touch-action: pan-x !important;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
 }
 
 .actions-nav-bar::-webkit-scrollbar {
@@ -461,7 +492,8 @@ body {
   justify-content: center;
   height: 100%;
   min-height: var(--min-target-height);
-  min-width: var(--min-target-width);
+  min-width: 0 !important;
+  max-width: 100% !important;
   box-sizing: border-box;
   margin: 0;
 }
@@ -497,7 +529,7 @@ body {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--button-gap-x, 4px) var(--button-gap-y, 4px);
   align-content: start;
   padding: 4px;
@@ -514,6 +546,8 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   min-height: var(--min-target-height);
+  min-width: 0 !important;
+  max-width: 100% !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -626,18 +660,21 @@ body {
 }
 
 .edit-toolbar {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--button-gap-x, 4px);
-  width: 100%;
-  overflow-x: auto;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: var(--button-gap-x, 4px) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
   scrollbar-width: none;
   -ms-overflow-style: none;
   touch-action: pan-x !important;
   user-select: none;
   -webkit-user-select: none;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
 }
 
 .edit-toolbar::-webkit-scrollbar {
@@ -645,9 +682,10 @@ body {
 }
 
 .edit-toolbar .btn {
-  flex: 0 0 auto;
-  min-width: var(--min-target-width);
-  padding: 6px 10px;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 6px 8px;
   font-size: clamp(0.7rem, 1.3vw, 0.85rem);
   white-space: nowrap;
   word-break: normal;
@@ -836,7 +874,16 @@ body {
   padding-right: 8px;
 }
 
-/* --- Row 3: Virtual Keyboard --- */
+.keyboard-panel-wrapper {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
 .keyboard-panel-wrapper:not(.collapsed):not(.auto-hide) {
   flex: 0 0 auto !important;
   flex-shrink: 0 !important;
@@ -861,9 +908,10 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 4px !important;
-  flex: 1;
+  flex: 1 1 0px !important;
+  min-width: 0 !important;
   box-sizing: border-box !important;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .keyboard-row {
@@ -873,12 +921,15 @@ body {
   min-height: var(--min-target-height) !important;
   max-height: var(--min-target-height) !important;
   flex: 0 0 var(--min-target-height) !important;
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box !important;
+  overflow: hidden !important;
 }
 
 .key {
-  flex: 1;
+  flex: 1 1 0px !important;
+  min-width: 0 !important;
   height: var(--min-target-height) !important;
   min-height: var(--min-target-height) !important;
   max-height: var(--min-target-height) !important;
@@ -1121,11 +1172,31 @@ body {
 
 /* Narrow Mode Layout (Stacked Arrangement <= 768px) */
 @media (max-width: 768px) {
+  :root {
+    --button-gap-x: 2px !important;
+  }
+
   .app-container {
     overflow: hidden;
     height: 100vh;
     height: 100dvh;
     height: var(--app-height, 100dvh);
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .panel-label {
+    flex: 0 0 24px !important;
+    width: 24px !important;
+    min-width: 24px !important;
+    max-width: 24px !important;
+    font-size: 0.55rem !important;
+    padding: 6px 2px !important;
+  }
+
+  .key {
+    padding: 0 !important;
+    font-size: clamp(0.7rem, 3.2vw, 1.1rem) !important;
   }
 
   /* In narrow mode, ALL collapsed panels get horizontal label treatment */
@@ -1151,6 +1222,9 @@ body {
     flex-direction: column;
     flex: 0 0 auto;
     min-height: 0;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow: hidden;
     gap: 0;
   }
@@ -1158,6 +1232,9 @@ body {
   .chat-panel, .actions-panel {
     flex: 0 0 auto;
     min-height: 0;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow: hidden;
   }
 }
@@ -1165,7 +1242,10 @@ body {
 .editor-panel {
   flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 .editor-body {
