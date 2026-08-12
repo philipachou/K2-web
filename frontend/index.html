@@ -23,7 +23,7 @@
       <!-- Top Row: Chat Panel (Left) & Actions Panel (Right) -->
       <div class="top-row">
         <!-- Left Column: Chat Log -->
-        <section class="panel chat-panel labeled-panel">
+        <section class="panel chat-panel labeled-panel top-row-panel">
           <div class="panel-label">Chat Log</div>
           <div class="panel-body">
             <div id="active-timers-container" class="active-timers-container"></div>
@@ -37,7 +37,7 @@
         <div class="panel-divider vertical-divider"></div>
 
         <!-- Right Column: Saved Actions Macro Grid -->
-        <section class="panel actions-panel labeled-panel">
+        <section class="panel actions-panel labeled-panel top-row-panel">
           <div class="panel-label">Actions</div>
           <div class="panel-body">
             <div class="panel-header">
@@ -125,28 +125,27 @@
           </div>
         </div>
       </main>
-    </div>
+      <!-- Horizontal Divider between Editor Panel & Predictor -->
+      <div class="panel-divider horizontal-divider"></div>
 
-    <!-- Horizontal Divider between Upper Workspace & Predictor -->
-    <div class="panel-divider horizontal-divider"></div>
-
-    <!-- Row 2: Predictions Bar (WORDS on top, PHRASES below) -->
-    <div class="predictions-panel labeled-panel">
-      <div class="panel-label">Predictor</div>
-      <div class="panel-body predictions-body">
-        <div class="prediction-row" id="words-prediction-row">
-          <div class="pred-label">WORDS</div>
-          <div class="prediction-list-wrapper" id="word-predictions"></div>
-        </div>
-        <div class="prediction-row" id="phrases-prediction-row">
-          <div class="pred-label">PHRASES</div>
-          <div class="prediction-list-wrapper" id="phrase-predictions"></div>
-          <span id="phrase-thinking" class="thinking-label" style="display: none;">Thinking...</span>
+      <!-- Row 2: Predictions Bar (WORDS on top, PHRASES below) -->
+      <div class="predictions-panel labeled-panel">
+        <div class="panel-label">Predictor</div>
+        <div class="panel-body predictions-body">
+          <div class="prediction-row" id="words-prediction-row">
+            <div class="pred-label">WORDS</div>
+            <div class="prediction-list-wrapper" id="word-predictions"></div>
+          </div>
+          <div class="prediction-row" id="phrases-prediction-row">
+            <div class="pred-label">PHRASES</div>
+            <div class="prediction-list-wrapper" id="phrase-predictions"></div>
+            <span id="phrase-thinking" class="thinking-label" style="display: none;">Thinking...</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Horizontal Divider between Predictor & Keyboard -->
+    <!-- Horizontal Divider between Upper Workspace & Keyboard -->
     <div class="panel-divider horizontal-divider"></div>
 
     <!-- Row 3: QWERTY Virtual Keyboard -->

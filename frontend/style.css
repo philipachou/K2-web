@@ -53,12 +53,12 @@ body {
 }
 
 .upper-workspace {
-  flex: 1 1 0px !important;
-  min-height: 0 !important;
+  flex: 1 1 0px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0 !important;
-  overflow-y: auto !important;
+  gap: 0;
+  overflow: hidden;
 }
 
 /* --- Standardized Panel Boundary System --- */
@@ -102,7 +102,7 @@ body {
 }
 
 /* Fixed Height Panes (Anchored at bottom, never cut off) */
-.predictions-panel {
+.predictions-panel:not(.collapsed) {
   flex: 0 0 auto !important;
   flex-shrink: 0 !important;
   height: calc(2 * var(--min-target-height) + 14px) !important;
@@ -110,12 +110,19 @@ body {
   box-sizing: border-box !important;
 }
 
+.predictions-panel.collapsed {
+  flex: 0 0 auto !important;
+  height: var(--min-target-height, 40px) !important;
+  min-height: var(--min-target-height, 40px) !important;
+  max-height: var(--min-target-height, 40px) !important;
+}
+
 /* Top Row: Chat Panel (Left) & Actions Panel (Right) */
 .top-row {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
-  gap: 0 !important;
-  min-height: 150px;
+  gap: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -411,14 +418,15 @@ body {
   display: flex;
   align-items: center;
   gap: var(--button-gap-x, 4px);
-  padding: 3px 6px;
+  padding: 0 6px;
   background: #334155;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
   overflow-x: auto;
   overflow-y: hidden;
   flex-shrink: 0;
-  min-height: calc(var(--min-target-height) + 6px);
+  height: var(--min-target-height);
+  min-height: var(--min-target-height);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   user-select: none;
@@ -436,9 +444,10 @@ body {
   border: none;
   filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #d97706);
   color: #0f172a;
-  padding: 4px 10px;
-  border-radius: 4px;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  padding: 0 10px;
+  border-radius: 6px;
+  -webkit-mask-image: linear-gradient(225deg, transparent 10px, #000 11px);
+  mask-image: linear-gradient(225deg, transparent 10px, #000 11px);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -447,9 +456,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: 100%;
   min-height: var(--min-target-height);
   min-width: var(--min-target-width);
   box-sizing: border-box;
+  margin: 0;
 }
 
 .nav-breadcrumb-btn:hover {
@@ -459,7 +470,7 @@ body {
 
 .nav-breadcrumb-btn.nav-home-btn {
   font-size: 0.95rem;
-  padding: 3px 8px;
+  padding: 0 8px;
 }
 
 .nav-breadcrumb-btn.active {
@@ -520,9 +531,10 @@ body {
   justify-content: center;
   text-align: center;
   font-weight: 700;
-  border-radius: 4px;
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
-  padding: 8px 10px;
+  border-radius: 6px;
+  -webkit-mask-image: linear-gradient(225deg, transparent 12px, #000 13px);
+  mask-image: linear-gradient(225deg, transparent 12px, #000 13px);
+  padding: 4px 8px;
 }
 
 .action-card.category-card:hover {
@@ -708,7 +720,7 @@ body {
 
 #editor-box {
   width: 100%;
-  height: 110px;
+  height: auto;
   background: rgba(15, 23, 42, 0.8);
   border: 2px solid var(--glass-border);
   border-radius: 8px;
@@ -819,12 +831,19 @@ body {
 }
 
 /* --- Row 3: Virtual Keyboard --- */
-.keyboard-panel-wrapper {
+.keyboard-panel-wrapper:not(.collapsed):not(.auto-hide) {
   flex: 0 0 auto !important;
   flex-shrink: 0 !important;
   height: calc(5 * var(--min-target-height) + 4 * var(--button-gap-y, 4px) + 8px) !important;
   min-height: calc(5 * var(--min-target-height) + 4 * var(--button-gap-y, 4px) + 8px) !important;
   box-sizing: border-box !important;
+}
+
+.keyboard-panel-wrapper.collapsed {
+  flex: 0 0 auto !important;
+  height: var(--min-target-height, 40px) !important;
+  min-height: var(--min-target-height, 40px) !important;
+  max-height: var(--min-target-height, 40px) !important;
 }
 
 .keyboard-container {
@@ -1060,7 +1079,7 @@ body {
   }
 
   /* Desktop Minimization: Label remains vertical text (34px wide column), giving the other panel horizontal space to expand */
-  .top-row .labeled-panel.collapsed {
+  .top-row .labeled-panel.collapsed:not(.force-horizontal-label) {
     flex: 0 0 34px !important;
     width: 34px !important;
     height: 100% !important;
@@ -1068,7 +1087,7 @@ body {
     max-height: none !important;
   }
 
-  .top-row .labeled-panel.collapsed .panel-label {
+  .top-row .labeled-panel.collapsed:not(.force-horizontal-label) .panel-label {
     writing-mode: vertical-rl !important;
     transform: rotate(180deg) !important;
     width: 100% !important;
@@ -1088,6 +1107,10 @@ body {
     flex: 1 1 auto !important;
     width: auto !important;
   }
+
+  .top-row:has(.force-horizontal-label) .vertical-divider {
+    display: none !important;
+  }
 }
 
 /* Narrow Mode Layout (Stacked Arrangement <= 768px) */
@@ -1097,64 +1120,46 @@ body {
     height: 100vh;
     height: 100dvh;
     height: var(--app-height, 100dvh);
-    padding-top: max(56px, calc(env(safe-area-inset-top, 0px) + 50px)) !important;
   }
 
-  .labeled-panel.collapsed {
-    height: 42px !important;
-    min-height: 42px !important;
-    max-height: 42px !important;
-  }
-
+  /* In narrow mode, ALL collapsed panels get horizontal label treatment */
   .labeled-panel.collapsed .panel-label {
+    writing-mode: horizontal-tb !important;
+    transform: none !important;
+    width: 100% !important;
     height: 100% !important;
-    min-height: 42px !important;
+    border-radius: 8px !important;
+    border-right: 1px solid var(--glass-border) !important;
+    justify-content: flex-start !important;
+    padding: 0 14px !important;
     font-size: 0.85rem !important;
     font-weight: 600 !important;
+    letter-spacing: 0.1em !important;
     background: rgba(15, 23, 42, 0.95) !important;
     border: 1px solid var(--color-teal) !important;
     box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3) !important;
+    color: var(--color-teal-light) !important;
   }
 
   .top-row {
     flex-direction: column;
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow-y: auto;
-    gap: 8px;
+    overflow: hidden;
+    gap: 0;
   }
 
-  /* Equal 50/50 space sharing with strict minimum line bounds */
-  .chat-panel:not(.collapsed) {
-    flex: 1 1 50%;
-    min-height: 110px; /* Guarantees at least 3 lines of chat text */
-    overflow-y: auto;
-  }
-
-  .actions-panel:not(.collapsed) {
-    flex: 1 1 50%;
-    min-height: 150px; /* Guarantees at least 3 lines/rows of action buttons */
-    overflow-y: auto;
-  }
-
-  .top-row:has(.actions-panel.collapsed) .chat-panel:not(.collapsed) {
-    flex: 1 !important;
-    min-height: 110px !important;
-  }
-
-  .top-row:has(.chat-panel.collapsed) .actions-panel:not(.collapsed) {
-    flex: 1 !important;
-    min-height: 150px !important;
-  }
-
-  .app-container:has(.actions-panel.collapsed):has(.chat-panel.collapsed) .editor-panel:not(.collapsed) {
-    flex: 1 !important;
+  .chat-panel, .actions-panel {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: hidden;
   }
 }
 
 .editor-panel {
-  flex: 1;
-  min-height: 140px;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .editor-body {
@@ -1167,13 +1172,13 @@ body {
 .textbox-wrapper {
   flex: 1;
   display: flex;
-  min-height: 60px;
+  min-height: 0;
 }
 
 #editor-box {
   flex: 1;
   height: 100%;
-  min-height: 60px;
+  min-height: 0;
 }
 
 /* --- Interactive Collapsible Panel Accordion System --- */
@@ -1192,12 +1197,9 @@ body {
 /* Collapsed Panel State */
 .labeled-panel.collapsed {
   flex: 0 0 auto !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
   overflow: hidden !important;
   border-radius: 8px !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .labeled-panel.collapsed .panel-body,
@@ -1205,7 +1207,11 @@ body {
   display: none !important;
 }
 
-.labeled-panel.collapsed .panel-label {
+/* Horizontal label: applies in narrow mode (stacked), or when a panel
+   is outside the .top-row (Editor, Predictor, Keyboard), or when BOTH
+   Chat and Actions are collapsed in wide mode (JS adds .force-horizontal-label). */
+.labeled-panel.collapsed:not(.top-row-panel) .panel-label,
+.labeled-panel.force-horizontal-label .panel-label {
   writing-mode: horizontal-tb !important;
   transform: none !important;
   width: 100% !important;
@@ -1218,6 +1224,14 @@ body {
   letter-spacing: 0.1em !important;
   background: rgba(15, 23, 42, 0.75) !important;
   color: var(--color-teal-light) !important;
+}
+
+.labeled-panel.force-horizontal-label {
+  width: 100% !important;
+  flex: 0 0 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
 }
 
 /* Chevron indicator for panel collapse state */

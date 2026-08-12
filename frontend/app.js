@@ -1271,18 +1271,82 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  editorBox.addEventListener("input", adjustEditorBoxHeight);
-  setTimeout(adjustEditorBoxHeight, 50);
+  editorBox.addEventListener("input", () => scheduleRecalculateLayoutHeights(100));
+  // Note: initial sizing is handled by scheduleRecalculateLayoutHeights(100) below
 
   document.getElementById("use-os-keyboard-toggle").addEventListener("change", updateSettingsVisibility);
 
-  // Accordion Panel Collapsing Bindings
+  // Accordion Panel Collapsing Bindings (with collapse constraint)
   document.querySelectorAll(".panel-label").forEach(label => {
-    label.addEventListener("click", () => {
-      const panel = label.closest(".labeled-panel");
-      if (panel) {
-        panel.classList.toggle("collapsed");
+    label.addEventListener("click", (e) => {
+      if (_isLabelDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        _isLabelDragging = false;
+        return;
       }
+
+      const panel = label.closest(".labeled-panel");
+      if (!panel) return;
+
+      const isCollapsing = !panel.classList.contains("collapsed");
+
+      if (isCollapsing) {
+        // Determine panel key for {C, A, E} tracking
+        let key = null;
+        if (panel.classList.contains('chat-panel'))    key = 'chat';
+        else if (panel.classList.contains('actions-panel')) key = 'actions';
+        else if (panel.classList.contains('editor-panel'))  key = 'editor';
+
+        // Enforce: at least one of {C, A, E} must stay open
+        const chatPanel    = document.querySelector('.chat-panel');
+        const actionsPanel = document.querySelector('.actions-panel');
+        const editorPanel  = document.querySelector('.editor-panel');
+        const c_active = !chatPanel.classList.contains('collapsed');
+        const a_active = !actionsPanel.classList.contains('collapsed');
+        const e_active = !editorPanel.classList.contains('collapsed');
+
+        const wouldAllCollapse = (
+          (key === 'chat'    && !a_active && !e_active) ||
+          (key === 'actions' && !c_active && !e_active) ||
+          (key === 'editor'  && !c_active && !a_active)
+        );
+
+        if (wouldAllCollapse) {
+          // Reopen the earliest closed panel in history
+          const earliest = closedPanelHistory.find(k => k !== key);
+          if (earliest) {
+            const reopenEl = document.querySelector(
+              earliest === 'chat'    ? '.chat-panel' :
+              earliest === 'actions' ? '.actions-panel' : '.editor-panel'
+            );
+            if (reopenEl) {
+              reopenEl.classList.remove('collapsed');
+              const idx = closedPanelHistory.indexOf(earliest);
+              if (idx !== -1) closedPanelHistory.splice(idx, 1);
+            }
+          }
+        }
+
+        panel.classList.add("collapsed");
+        if (key) {
+          const idx = closedPanelHistory.indexOf(key);
+          if (idx !== -1) closedPanelHistory.splice(idx, 1);
+          closedPanelHistory.push(key);
+        }
+      } else {
+        panel.classList.remove("collapsed");
+        let key = null;
+        if (panel.classList.contains('chat-panel'))    key = 'chat';
+        else if (panel.classList.contains('actions-panel')) key = 'actions';
+        else if (panel.classList.contains('editor-panel'))  key = 'editor';
+        if (key) {
+          const idx = closedPanelHistory.indexOf(key);
+          if (idx !== -1) closedPanelHistory.splice(idx, 1);
+        }
+      }
+
+      scheduleRecalculateLayoutHeights(50);
     });
   });
 
@@ -1292,26 +1356,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   const actionControlsEl = document.querySelector(".actions-header-controls");
   if (editToolbarEl) layoutObserver.observe(editToolbarEl);
   if (actionControlsEl) layoutObserver.observe(actionControlsEl);
-  window.addEventListener("resize", () => {
-    updateAppViewportHeight();
+
+  // iOS-aware event bindings for layout recalculation
+  // Subscribe to BOTH resize events (iOS fires inconsistently)
+  window.visualViewport?.addEventListener('resize', () => {
+    scheduleRecalculateLayoutHeights(50);
     updateToolbarLayouts();
   });
-  window.addEventListener("orientationchange", () => {
-    setTimeout(() => {
-      updateAppViewportHeight();
-      updateToolbarLayouts();
-    }, 100);
+  window.visualViewport?.addEventListener('scroll', () => {
+    scheduleRecalculateLayoutHeights(50);
   });
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", () => {
-      updateAppViewportHeight();
+  window.addEventListener('resize', () => {
+    scheduleRecalculateLayoutHeights(50);
+    updateToolbarLayouts();
+  });
+  // Orientation change: 200ms delay to let iOS settle
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      scheduleRecalculateLayoutHeights(0);
       updateToolbarLayouts();
-    });
-    window.visualViewport.addEventListener("scroll", () => {
-      updateAppViewportHeight();
-    });
+    }, 200);
+  });
+
+  // iOS keyboard proxy: focusin/focusout on editor with 300ms delay
+  const editorBoxEl = document.getElementById('editor-box');
+  if (editorBoxEl) {
+    editorBoxEl.addEventListener('focusin',  () => scheduleRecalculateLayoutHeights(300));
+    editorBoxEl.addEventListener('focusout', () => scheduleRecalculateLayoutHeights(300));
   }
-  updateAppViewportHeight();
+
+  // Initialize drag-to-slide listener
+  initDragSlideListeners();
+
+  // Initial layout calculation — wait for paint so getBoundingClientRect() is accurate
+  requestAnimationFrame(() => scheduleRecalculateLayoutHeights(150));
   setTimeout(updateToolbarLayouts, 50);
 
   updateSettingsVisibility();
@@ -1327,6 +1405,418 @@ function updateAppViewportHeight() {
   const vv = window.visualViewport;
   const vh = vv ? vv.height : window.innerHeight;
   document.documentElement.style.setProperty('--app-height', `${vh}px`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel Layout Engine: Rationalized Vertical Height Allocation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Track which of {C, A, E} the user collapsed, in order */
+const closedPanelHistory = []; // entries: 'chat' | 'actions' | 'editor'
+
+/** Minimum collapsed panel label bar height (px) */
+const LABEL_BAR_H_DESKTOP = 34;
+const LABEL_BAR_H_MOBILE  = 42;
+
+/** Debounce timer handle */
+let _recalcTimer = null;
+
+/** Debounced entry point — safe to call many times rapidly */
+function scheduleRecalculateLayoutHeights(delay = 50) {
+  clearTimeout(_recalcTimer);
+  _recalcTimer = setTimeout(recalculateLayoutHeights, delay);
+}
+
+/** Measure the pixel height of one line of text in the chat log */
+function getChatLineHeight() {
+  const chatLog = document.getElementById('chat-log-scroll');
+  if (!chatLog) return 32;
+  const st = window.getComputedStyle(chatLog);
+  const lh = parseFloat(st.lineHeight);
+  const fs = parseFloat(st.fontSize) || 16;
+  return (isNaN(lh) || lh <= 0) ? fs * 1.4 : lh;
+}
+
+/** Count current lines of text visible in the chat log (clamped 1–3) */
+function countChatLines() {
+  const chatLog = document.getElementById('chat-log-scroll');
+  if (!chatLog || !chatLog.children.length) return 1;
+  const lineH = getChatLineHeight();
+  const contentH = chatLog.scrollHeight;
+  return Math.max(1, Math.min(3, Math.round(contentH / lineH)));
+}
+
+/** Measure the pixel height of one row of action buttons in the grid */
+function getActionRowHeight() {
+  const grid = document.getElementById('actions-grid');
+  if (!grid || !grid.children.length) return (settings.min_target_height || 40) + 4;
+  const st = window.getComputedStyle(grid);
+  const gap = parseFloat(st.rowGap) || 4;
+  const firstBtn = grid.firstElementChild;
+  return firstBtn ? (firstBtn.getBoundingClientRect().height + gap) : (settings.min_target_height || 40) + gap;
+}
+
+/** Count current rows of buttons in the action grid (clamped 1–3) */
+function countActionRows() {
+  const grid = document.getElementById('actions-grid');
+  if (!grid || !grid.children.length) return 1;
+  const rowH = getActionRowHeight();
+  return Math.max(1, Math.min(3, Math.round(grid.scrollHeight / rowH)));
+}
+
+/** Measure pixel height of one line of editor text */
+function getEditorLineHeight() {
+  const editor = document.getElementById('editor-box');
+  if (!editor) return (settings.font_size_editor || 32) * 1.3;
+  const st = window.getComputedStyle(editor);
+  const lh = parseFloat(st.lineHeight);
+  const fs = parseFloat(st.fontSize) || (settings.font_size_editor || 32);
+  return (isNaN(lh) || lh <= 0) ? fs * 1.3 : lh;
+}
+
+/** Count current lines of text in the editor box (clamped 1–3) */
+function countEditorLines() {
+  const editor = document.getElementById('editor-box');
+  if (!editor) return 1;
+  const val = editor.value;
+  if (!val || val.trim() === "") return 1;
+
+  const lineH = getEditorLineHeight();
+  const paddingTop = parseFloat(window.getComputedStyle(editor).paddingTop) || 6;
+  const paddingBot = parseFloat(window.getComputedStyle(editor).paddingBottom) || 6;
+
+  // Temporarily reset height inline to measure accurate scrollHeight synchronously without layout glitch
+  const prevH = editor.style.height;
+  const prevMinH = editor.style.minHeight;
+  editor.style.height = 'auto';
+  editor.style.minHeight = '0px';
+  const contentH = editor.scrollHeight - paddingTop - paddingBot;
+  editor.style.height = prevH;
+  editor.style.minHeight = prevMinH;
+
+  if (contentH <= 1.35 * lineH) return 1;
+  if (contentH <= 2.35 * lineH) return 2;
+  return 3;
+}
+
+/** Apply explicit pixel height to a DOM element (overrides flex sizing) */
+function applyPanelHeight(el, px) {
+  if (!el) return;
+  el.style.height = `${Math.round(px)}px`;
+  el.style.minHeight = `${Math.round(px)}px`;
+  el.style.maxHeight = `${Math.round(px)}px`;
+  el.style.flex = '0 0 auto';
+}
+
+/** Update label orientation for chat-panel and actions-panel in wide mode */
+function updateWideModeLabels(c_active, a_active, is_wide) {
+  const chatPanel    = document.querySelector('.chat-panel');
+  const actionsPanel = document.querySelector('.actions-panel');
+  if (!chatPanel || !actionsPanel) return;
+
+  if (is_wide && !c_active && !a_active) {
+    // Both collapsed in wide mode: force horizontal labels
+    chatPanel.classList.add('force-horizontal-label');
+    actionsPanel.classList.add('force-horizontal-label');
+  } else {
+    // At least one active: remove override (CSS handles vertical label via .top-row override)
+    chatPanel.classList.remove('force-horizontal-label');
+    actionsPanel.classList.remove('force-horizontal-label');
+  }
+}
+
+/** Enable or disable vertical drag-sliding of the app container */
+let _dragSlideEnabled = false;
+let _dragStartY = 0;
+let _containerTranslateY = 0;
+let _appHeight = 0;
+let _viewportHeight = 0;
+
+function setUiSlidingState(enabled, appH, viewH) {
+  const appCont = document.querySelector('.app-container');
+  if (!appCont) return;
+
+  _dragSlideEnabled = enabled;
+  _appHeight = appH;
+  _viewportHeight = viewH;
+
+  if (!enabled) {
+    appCont.style.transform = '';
+    _containerTranslateY = 0;
+  }
+  // cursor style on labels
+  document.querySelectorAll('.panel-label').forEach(lbl => {
+    lbl.style.cursor = enabled ? 'grab' : 'pointer';
+  });
+}
+
+let _isLabelDragging = false;
+let _dragStartPos = { x: 0, y: 0 };
+
+function initDragSlideListeners() {
+  document.querySelectorAll('.panel-label').forEach(lbl => {
+    lbl.addEventListener('pointerdown', (e) => {
+      _dragStartPos = { x: e.clientX, y: e.clientY };
+      _isLabelDragging = false;
+      onDragStart(e);
+    });
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (_dragSlideEnabled && e.buttons) {
+      const dx = Math.abs(e.clientX - _dragStartPos.x);
+      const dy = Math.abs(e.clientY - _dragStartPos.y);
+      if (dx > 5 || dy > 5) {
+        _isLabelDragging = true;
+      }
+      onDragMove(e);
+    }
+  });
+  window.addEventListener('pointerup', onDragEnd);
+}
+
+function onDragStart(e) {
+  if (!_dragSlideEnabled) return;
+  _dragStartY = e.clientY - _containerTranslateY;
+}
+
+function onDragMove(e) {
+  if (!_dragSlideEnabled || !e.buttons) return;
+  // Drag sliding handled by native upper-workspace scrolling
+}
+
+function onDragEnd() {
+  // nothing extra needed — position stays
+}
+
+/** ─── MAIN LAYOUT ENGINE ─────────────────────────────────────────────── */
+function recalculateLayoutHeights() {
+  // ── Gather DOM elements ──────────────────────────────────────────────
+  const chatPanel      = document.querySelector('.chat-panel');
+  const actionsPanel   = document.querySelector('.actions-panel');
+  const editorPanel    = document.querySelector('.editor-panel');
+  const predictorPanel = document.querySelector('.predictions-panel');
+  const keyboardPanel  = document.querySelector('.keyboard-panel-wrapper');
+  const topRowEl       = document.querySelector('.top-row');
+  const upperWorkspace = document.querySelector('.upper-workspace');
+  const appCont        = document.querySelector('.app-container');
+
+  if (!chatPanel || !actionsPanel || !editorPanel || !topRowEl || !appCont) return;
+
+  // ── Viewport & mode ──────────────────────────────────────────────────
+  const vv             = window.visualViewport;
+  const viewport_H     = vv ? vv.height : window.innerHeight;
+  const is_wide        = window.innerWidth >= 769;
+  // Account for app-container top/bottom padding
+  const appStyle       = window.getComputedStyle(appCont);
+  const appPadV        = parseFloat(appStyle.paddingTop) + parseFloat(appStyle.paddingBottom);
+  const available_H    = viewport_H - appPadV; // actual content area
+
+  // ── Panel active states ──────────────────────────────────────────────
+  const c_active = !chatPanel.classList.contains('collapsed');
+  const a_active = !actionsPanel.classList.contains('collapsed');
+  const e_active = !editorPanel.classList.contains('collapsed');
+  const p_active = predictorPanel && !predictorPanel.classList.contains('collapsed');
+  const k_active = keyboardPanel  && !keyboardPanel.classList.contains('collapsed');
+
+  // ── Keyboard mode ────────────────────────────────────────────────────
+  const use_os_keyboard       = settings.use_os_keyboard === 1;
+  const auto_hide_k2          = settings.auto_hide_k2_keyboard === 1;
+  const LABEL_BAR_H           = settings.min_target_height || 40;
+
+  // ── Step 1: Fixed component heights (XF) ─────────────────────────────
+  const CF = c_active ? 0 : LABEL_BAR_H;
+
+  const modeBar       = actionsPanel.querySelector('.panel-header');
+  const breadcrumbBar = actionsPanel.querySelector('.actions-nav-bar');
+  const previewBar    = actionsPanel.querySelector('.actions-preview-bar');
+  const AF_content    = a_active ? (
+    (modeBar       ? modeBar.getBoundingClientRect().height       : 0) +
+    (breadcrumbBar ? breadcrumbBar.getBoundingClientRect().height : 0) +
+    (previewBar    ? previewBar.getBoundingClientRect().height    : 0) + 2 /* border */
+  ) : LABEL_BAR_H;
+  const AF = AF_content;
+
+  // Editor Toolbar & Text Box required height
+  const editToolbar = editorPanel.querySelector('.edit-toolbar');
+  const toolbarH    = e_active ? (
+    editToolbar && editToolbar.scrollHeight > 0
+      ? Math.max(editToolbar.scrollHeight, settings.min_target_height || 40)
+      : (settings.min_target_height || 40)
+  ) : 0;
+  const EF = e_active ? (toolbarH + 18) : LABEL_BAR_H;
+
+  // ── Step 2: Editor variable height (EV_min & EV) ──────────────────────
+  const editLH   = getEditorLineHeight();
+  const edPadT   = parseFloat(window.getComputedStyle(document.getElementById('editor-box')).paddingTop) || 6;
+  const edPadB   = parseFloat(window.getComputedStyle(document.getElementById('editor-box')).paddingBottom) || 6;
+  const edBord   = 4;
+  const numLines = countEditorLines();
+  const EV_min   = e_active ? Math.round(numLines * editLH + edPadT + edPadB + edBord) : 0;
+  const H_editor_min = e_active ? (EF + EV_min + 2) : LABEL_BAR_H;
+
+  // Predictor Panel required height
+  const PF = predictorPanel ? (
+    p_active ? (2 * (settings.min_target_height || 40) + 14) : LABEL_BAR_H
+  ) : 0;
+
+  // Keyboard Panel required height
+  let KF;
+  if (use_os_keyboard) {
+    KF = 0; // OS keyboard: panel hidden entirely
+  } else if (auto_hide_k2) {
+    KF = k_active ? 0 : LABEL_BAR_H; // popup K2: 0 when open (overlays), label when inactive
+  } else {
+    // Docked K2: full height when active, label when collapsed
+    KF = k_active ? (5 * (settings.min_target_height || 40) + 4 * (settings.button_gap_y || 4) + 8) : LABEL_BAR_H;
+  }
+
+  // Dividers: count them and their total height
+  const dividers = Array.from(document.querySelectorAll('.panel-divider.horizontal-divider'));
+  const divider_H = dividers.reduce((sum, d) => sum + (d.getBoundingClientRect().height + parseFloat(getComputedStyle(d).marginTop) + parseFloat(getComputedStyle(d).marginBottom)), 0);
+
+  // Minimum heights for Chat Log and Actions Panel
+  const chatLH  = getChatLineHeight();
+  const CV_min  = c_active ? Math.max(1, Math.min(3, countChatLines())) * chatLH : 0;
+
+  const actRowH = getActionRowHeight();
+  const AV_min  = a_active ? Math.max(1, Math.min(3, countActionRows())) * actRowH : 0;
+
+  let H_topmin;
+  if (is_wide) {
+    H_topmin = Math.max(CF + CV_min, AF + AV_min);
+  } else {
+    H_topmin = (CF + CV_min) + (AF + AV_min);
+  }
+
+  // ── Step 3: Minimum app height & H_excess ────────────────────────────
+  const H_app_min = H_topmin + H_editor_min + PF + KF + divider_H;
+  const H_excess  = available_H - H_app_min;
+
+  // ── Step 4: Allocate heights ─────────────────────────────────────────
+  let EV = EV_min;
+  let H_editor = H_editor_min;
+
+  if (H_excess > 0 && !c_active && !a_active && e_active) {
+    // Rule 2: Chat Log & Actions closed, Editor open -> Give ALL excess space to Editor text box EV!
+    EV = EV_min + H_excess;
+    H_editor = EF + EV + 2;
+  }
+
+  // ── Step 5: Apply heights ─────────────────────────────────────────────
+  const maxTopRowH = Math.max(100, available_H - H_editor - PF - KF - divider_H);
+  if (is_wide) {
+    if (!c_active && !a_active) {
+      topRowEl.style.flexDirection = 'column';
+      topRowEl.style.flex = '0 0 auto';
+      const topRowH = 2 * LABEL_BAR_H + 4;
+      applyPanelHeight(topRowEl, topRowH);
+      applyPanelHeight(chatPanel, LABEL_BAR_H);
+      applyPanelHeight(actionsPanel, LABEL_BAR_H);
+    } else {
+      topRowEl.style.flexDirection = 'row';
+      topRowEl.style.flex = '0 0 auto';
+      topRowEl.style.height = `${Math.round(maxTopRowH)}px`;
+      topRowEl.style.minHeight = '100px';
+      topRowEl.style.maxHeight = `${Math.round(maxTopRowH)}px`;
+
+      if (c_active) {
+        chatPanel.style.height = '100%';
+        chatPanel.style.minHeight = '0px';
+        chatPanel.style.maxHeight = '100%';
+        chatPanel.style.flex = '1 1 50%';
+      } else {
+        chatPanel.style.height = '';
+        chatPanel.style.minHeight = '';
+        chatPanel.style.maxHeight = '';
+        chatPanel.style.flex = '';
+      }
+
+      if (a_active) {
+        actionsPanel.style.height = '100%';
+        actionsPanel.style.minHeight = '0px';
+        actionsPanel.style.maxHeight = '100%';
+        actionsPanel.style.flex = '1 1 50%';
+      } else {
+        actionsPanel.style.height = '';
+        actionsPanel.style.minHeight = '';
+        actionsPanel.style.maxHeight = '';
+        actionsPanel.style.flex = '';
+      }
+    }
+  } else {
+    topRowEl.style.flexDirection = 'column';
+    topRowEl.style.flex = '0 0 auto';
+    const CV = c_active ? Math.max(CV_min, 120) : 0;
+    const AV = a_active ? Math.max(AV_min, 120) : 0;
+    const topRowH = (c_active ? CF + CV : LABEL_BAR_H) + (a_active ? AF + AV : LABEL_BAR_H);
+    applyPanelHeight(topRowEl, topRowH);
+
+    if (c_active) {
+      applyPanelHeight(chatPanel, CF + CV);
+    } else {
+      applyPanelHeight(chatPanel, LABEL_BAR_H);
+    }
+    if (a_active) {
+      applyPanelHeight(actionsPanel, AF + AV);
+    } else {
+      applyPanelHeight(actionsPanel, LABEL_BAR_H);
+    }
+  }
+
+  if (e_active) {
+    applyPanelHeight(editorPanel, H_editor);
+    const editorBox = document.getElementById('editor-box');
+    if (editorBox) {
+      editorBox.style.height = `${EV}px`;
+      editorBox.style.minHeight = `${EV}px`;
+      editorBox.style.maxHeight = `${EV}px`;
+      editorBox.style.flex = '0 0 auto';
+      editorBox.style.overflowY = 'auto';
+    }
+  } else {
+    applyPanelHeight(editorPanel, LABEL_BAR_H);
+    const editorBox = document.getElementById('editor-box');
+    if (editorBox) {
+      editorBox.style.height = '';
+      editorBox.style.minHeight = '';
+      editorBox.style.maxHeight = '';
+      editorBox.style.flex = '';
+    }
+  }
+
+  if (predictorPanel) {
+    if (p_active) {
+      applyPanelHeight(predictorPanel, PF);
+    } else {
+      applyPanelHeight(predictorPanel, LABEL_BAR_H);
+    }
+  }
+
+  if (keyboardPanel && !use_os_keyboard) {
+    if (!k_active) {
+      applyPanelHeight(keyboardPanel, LABEL_BAR_H);
+    } else if (!auto_hide_k2) {
+      keyboardPanel.style.height = '';
+      keyboardPanel.style.minHeight = '';
+      keyboardPanel.style.maxHeight = '';
+      keyboardPanel.style.flex = '0 0 auto';
+    }
+    // popup K2 when open: panel is overlay — don't size it in layout
+  }
+
+  // ── Wide-mode label orientation ───────────────────────────────────────
+  updateWideModeLabels(c_active, a_active, is_wide);
+
+  // ── Drag-slide & upper-workspace scroll state ─────────────────────────
+  if (upperWorkspace) {
+    upperWorkspace.style.overflowY = H_excess < 0 ? 'auto' : 'hidden';
+  }
+  if (appCont) {
+    appCont.style.transform = '';
+  }
+
+  // ── Update the --app-height CSS variable ─────────────────────────────
+  document.documentElement.style.setProperty('--app-height', `${viewport_H}px`);
 }
 
 function adjustEditorBoxHeight() {
