@@ -2917,11 +2917,10 @@ function renderKeyboard(probabilities) {
         keyBtn.style.borderColor = `hsl(${hue}, ${sat}%, ${lit + 5}%)`;
       }
 
-      // Key Tap dispatch handlers
-      keyBtn.addEventListener("mousedown", (e) => e.preventDefault());
-      keyBtn.addEventListener("touchstart", (e) => e.preventDefault());
+      // Key Tap dispatch handlers (0ms touch response + mouse compatibility)
+      let handledByTouch = false;
 
-      keyBtn.onclick = () => {
+      const executeKeyAction = () => {
         const target = getActiveInputTarget();
         if (target) {
           target.focus();
@@ -2939,10 +2938,23 @@ function renderKeyboard(probabilities) {
           insertTextAtCursor(char);
           if (shiftActive) {
             shiftActive = false;
-            // Recalculate layout in normal case
             renderKeyboard(probabilities);
           }
         }
+      };
+
+      keyBtn.addEventListener("mousedown", (e) => e.preventDefault());
+
+      keyBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault(); // Prevent editor blur and OS virtual keyboard popup
+        handledByTouch = true;
+        executeKeyAction();
+        setTimeout(() => { handledByTouch = false; }, 300);
+      });
+
+      keyBtn.onclick = (e) => {
+        if (handledByTouch) return;
+        executeKeyAction();
       };
 
       rowDiv.appendChild(keyBtn);
