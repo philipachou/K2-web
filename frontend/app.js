@@ -1676,10 +1676,10 @@ function recalculateLayoutHeights() {
 
   // Minimum heights for Chat Log and Actions Panel
   const chatLH  = getChatLineHeight();
-  const CV_min  = c_active ? Math.max(1, Math.min(3, countChatLines())) * chatLH : 0;
+  const CV_min  = c_active ? Math.round(Math.max(1, Math.min(3, countChatLines())) * chatLH + 24) : 0;
 
   const actRowH = getActionRowHeight();
-  const AV_min  = a_active ? Math.max(1, Math.min(3, countActionRows())) * actRowH : 0;
+  const AV_min  = a_active ? Math.round(Math.max(1, Math.min(3, countActionRows())) * actRowH + 8) : 0;
 
   let H_topmin;
   if (is_wide) {
