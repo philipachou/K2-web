@@ -1723,12 +1723,13 @@ function recalculateLayoutHeights() {
         chatPanel.style.maxHeight = '100%';
         chatPanel.style.flex = '1 1 50%';
         const chatBody = chatPanel.querySelector('.chat-log');
-        if (chatBody) { chatBody.style.height = `${Math.round(topRowH - CF)}px`; chatBody.style.flex = '0 0 auto'; }
+        if (chatBody) {
+          chatBody.style.height = `${Math.round(topRowH - CF)}px`;
+          chatBody.style.flex = '1 1 0px';
+          chatBody.style.overflowY = 'auto';
+        }
       } else {
-        chatPanel.style.height = '';
-        chatPanel.style.minHeight = '';
-        chatPanel.style.maxHeight = '';
-        chatPanel.style.flex = '';
+        applyPanelHeight(chatPanel, LABEL_BAR_H);
       }
 
       if (a_active) {
@@ -1737,12 +1738,13 @@ function recalculateLayoutHeights() {
         actionsPanel.style.maxHeight = '100%';
         actionsPanel.style.flex = '1 1 50%';
         const actionsList = actionsPanel.querySelector('.actions-list');
-        if (actionsList) { actionsList.style.height = `${Math.round(topRowH - AF)}px`; actionsList.style.flex = '0 0 auto'; }
+        if (actionsList) {
+          actionsList.style.height = `${Math.round(topRowH - AF)}px`;
+          actionsList.style.flex = '1 1 0px';
+          actionsList.style.overflowY = 'auto';
+        }
       } else {
-        actionsPanel.style.height = '';
-        actionsPanel.style.minHeight = '';
-        actionsPanel.style.maxHeight = '';
-        actionsPanel.style.flex = '';
+        applyPanelHeight(actionsPanel, LABEL_BAR_H);
       }
     }
   } else {
@@ -1761,7 +1763,11 @@ function recalculateLayoutHeights() {
     if (c_active) {
       applyPanelHeight(chatPanel, CF + CV);
       const chatBody = chatPanel.querySelector('.chat-log');
-      if (chatBody) { chatBody.style.height = `${Math.round(CV)}px`; chatBody.style.flex = '0 0 auto'; }
+      if (chatBody) {
+        chatBody.style.height = `${Math.round(CV)}px`;
+        chatBody.style.flex = '1 1 0px';
+        chatBody.style.overflowY = 'auto';
+      }
     } else {
       applyPanelHeight(chatPanel, LABEL_BAR_H);
     }
@@ -1769,7 +1775,11 @@ function recalculateLayoutHeights() {
     if (a_active) {
       applyPanelHeight(actionsPanel, AF + AV);
       const actionsList = actionsPanel.querySelector('.actions-list');
-      if (actionsList) { actionsList.style.height = `${Math.round(AV)}px`; actionsList.style.flex = '0 0 auto'; }
+      if (actionsList) {
+        actionsList.style.height = `${Math.round(AV)}px`;
+        actionsList.style.flex = '1 1 0px';
+        actionsList.style.overflowY = 'auto';
+      }
     } else {
       applyPanelHeight(actionsPanel, LABEL_BAR_H);
     }

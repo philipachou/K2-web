@@ -203,8 +203,11 @@ body {
 
 /* --- Chat Panel (Left) --- */
 .chat-log {
-  flex: 1;
+  flex: 1 1 0px;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -488,13 +491,16 @@ body {
 }
 
 .actions-list {
-  flex: 1;
+  flex: 1 1 0px;
+  min-height: 0;
   overflow-y: auto;
-  padding: 4px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
-  gap: var(--button-gap-y, 4px) var(--button-gap-x, 4px);
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--button-gap-x, 4px) var(--button-gap-y, 4px);
   align-content: start;
+  padding: 4px;
 }
 
 .action-card {
