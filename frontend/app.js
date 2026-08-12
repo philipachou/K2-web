@@ -1685,9 +1685,7 @@ function recalculateLayoutHeights() {
   if (is_wide) {
     H_topmin = Math.max(c_active ? (CF + CV_min) : LABEL_BAR_H, a_active ? (AF + AV_min) : LABEL_BAR_H);
   } else {
-    const CV_eff = c_active ? Math.max(CV_min, 120) : LABEL_BAR_H;
-    const AV_eff = a_active ? Math.max(AV_min, 120) : LABEL_BAR_H;
-    H_topmin = CV_eff + AV_eff;
+    H_topmin = (c_active ? (CF + CV_min) : LABEL_BAR_H) + (a_active ? (AF + AV_min) : LABEL_BAR_H);
   }
 
   // ── Step 3: Minimum app height & H_excess ────────────────────────────
@@ -1705,7 +1703,6 @@ function recalculateLayoutHeights() {
   }
 
   // ── Step 5: Apply heights ─────────────────────────────────────────────
-  const maxTopRowH = Math.max(100, available_H - H_editor - PF - KF - divider_H);
   if (is_wide) {
     if (!c_active && !a_active) {
       topRowEl.style.flexDirection = 'column';
@@ -1717,15 +1714,16 @@ function recalculateLayoutHeights() {
     } else {
       topRowEl.style.flexDirection = 'row';
       topRowEl.style.flex = '0 0 auto';
-      topRowEl.style.height = `${Math.round(maxTopRowH)}px`;
-      topRowEl.style.minHeight = '100px';
-      topRowEl.style.maxHeight = `${Math.round(maxTopRowH)}px`;
+      const topRowH = H_excess > 0 ? (H_topmin + H_excess) : H_topmin;
+      applyPanelHeight(topRowEl, topRowH);
 
       if (c_active) {
         chatPanel.style.height = '100%';
         chatPanel.style.minHeight = '0px';
         chatPanel.style.maxHeight = '100%';
         chatPanel.style.flex = '1 1 50%';
+        const chatBody = chatPanel.querySelector('.chat-log');
+        if (chatBody) { chatBody.style.height = `${Math.round(topRowH - CF)}px`; chatBody.style.flex = '0 0 auto'; }
       } else {
         chatPanel.style.height = '';
         chatPanel.style.minHeight = '';
@@ -1738,6 +1736,8 @@ function recalculateLayoutHeights() {
         actionsPanel.style.minHeight = '0px';
         actionsPanel.style.maxHeight = '100%';
         actionsPanel.style.flex = '1 1 50%';
+        const actionsList = actionsPanel.querySelector('.actions-list');
+        if (actionsList) { actionsList.style.height = `${Math.round(topRowH - AF)}px`; actionsList.style.flex = '0 0 auto'; }
       } else {
         actionsPanel.style.height = '';
         actionsPanel.style.minHeight = '';
@@ -1752,11 +1752,8 @@ function recalculateLayoutHeights() {
     const n_top = (c_active ? 1 : 0) + (a_active ? 1 : 0);
     const share = (n_top > 0 && H_excess > 0) ? (H_excess / n_top) : 0;
 
-    const CV_base = Math.max(CV_min, 120);
-    const AV_base = Math.max(AV_min, 120);
-
-    const CV = c_active ? (CV_base + share) : 0;
-    const AV = a_active ? (AV_base + share) : 0;
+    const CV = c_active ? (CV_min + share) : 0;
+    const AV = a_active ? (AV_min + share) : 0;
 
     const topRowH = (c_active ? (CF + CV) : LABEL_BAR_H) + (a_active ? (AF + AV) : LABEL_BAR_H);
     applyPanelHeight(topRowEl, topRowH);
