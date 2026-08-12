@@ -1748,18 +1748,31 @@ function recalculateLayoutHeights() {
   } else {
     topRowEl.style.flexDirection = 'column';
     topRowEl.style.flex = '0 0 auto';
-    const CV = c_active ? Math.max(CV_min, 120) : 0;
-    const AV = a_active ? Math.max(AV_min, 120) : 0;
-    const topRowH = (c_active ? CF + CV : LABEL_BAR_H) + (a_active ? AF + AV : LABEL_BAR_H);
+
+    const n_top = (c_active ? 1 : 0) + (a_active ? 1 : 0);
+    const share = (n_top > 0 && H_excess > 0) ? (H_excess / n_top) : 0;
+
+    const CV_base = Math.max(CV_min, 120);
+    const AV_base = Math.max(AV_min, 120);
+
+    const CV = c_active ? (CV_base + share) : 0;
+    const AV = a_active ? (AV_base + share) : 0;
+
+    const topRowH = (c_active ? (CF + CV) : LABEL_BAR_H) + (a_active ? (AF + AV) : LABEL_BAR_H);
     applyPanelHeight(topRowEl, topRowH);
 
     if (c_active) {
       applyPanelHeight(chatPanel, CF + CV);
+      const chatBody = chatPanel.querySelector('.chat-log');
+      if (chatBody) { chatBody.style.height = `${Math.round(CV)}px`; chatBody.style.flex = '0 0 auto'; }
     } else {
       applyPanelHeight(chatPanel, LABEL_BAR_H);
     }
+
     if (a_active) {
       applyPanelHeight(actionsPanel, AF + AV);
+      const actionsList = actionsPanel.querySelector('.actions-list');
+      if (actionsList) { actionsList.style.height = `${Math.round(AV)}px`; actionsList.style.flex = '0 0 auto'; }
     } else {
       applyPanelHeight(actionsPanel, LABEL_BAR_H);
     }
