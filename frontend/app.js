@@ -1942,6 +1942,7 @@ function applyKeyboardSettings() {
       }
     }
   }
+  scheduleRecalculateLayoutHeights(0);
 }
 
 function populateVoiceDropdown() {
