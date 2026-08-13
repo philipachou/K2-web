@@ -1189,7 +1189,7 @@ html, body {
     padding-right: 4px !important;
   }
 
-  .panel-label {
+  .labeled-panel:not(.collapsed) > .panel-label {
     flex: 0 0 24px !important;
     width: 24px !important;
     min-width: 24px !important;
@@ -1207,7 +1207,10 @@ html, body {
   .labeled-panel.collapsed .panel-label {
     writing-mode: horizontal-tb !important;
     transform: none !important;
+    flex: 1 1 100% !important;
     width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
     height: 100% !important;
     border-radius: 8px !important;
     border-right: 1px solid var(--glass-border) !important;
@@ -1284,9 +1287,15 @@ html, body {
   color: var(--color-teal-light) !important;
 }
 
-/* Collapsed Panel State */
+/* Collapsed Panel State & Unified Horizontal Label System */
 .labeled-panel.collapsed {
-  flex: 0 0 auto !important;
+  flex: 0 0 var(--min-target-height, 40px) !important;
+  height: var(--min-target-height, 40px) !important;
+  min-height: var(--min-target-height, 40px) !important;
+  max-height: var(--min-target-height, 40px) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
   overflow: hidden !important;
   border-radius: 8px !important;
   transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1297,31 +1306,31 @@ html, body {
   display: none !important;
 }
 
-/* Horizontal label: applies in narrow mode (stacked), or when a panel
-   is outside the .top-row (Editor, Predictor, Keyboard), or when BOTH
-   Chat and Actions are collapsed in wide mode (JS adds .force-horizontal-label). */
-.labeled-panel.collapsed:not(.top-row-panel) .panel-label,
+.labeled-panel.collapsed .panel-label,
 .labeled-panel.force-horizontal-label .panel-label {
   writing-mode: horizontal-tb !important;
   transform: none !important;
+  flex: 1 1 100% !important;
   width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
   height: 100% !important;
-  border-radius: 8px !important;
-  border-right: 1px solid var(--glass-border) !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
   justify-content: flex-start !important;
+  box-sizing: border-box !important;
   padding: 0 14px !important;
-  font-size: 0.75rem !important;
+  margin: 0 !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
   letter-spacing: 0.1em !important;
-  background: rgba(15, 23, 42, 0.75) !important;
+  line-height: 1 !important;
+  background: rgba(15, 23, 42, 0.85) !important;
   color: var(--color-teal-light) !important;
-}
-
-.labeled-panel.force-horizontal-label {
-  width: 100% !important;
-  flex: 0 0 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--glass-border) !important;
 }
 
 /* Chevron indicator for panel collapse state */

@@ -1415,8 +1415,8 @@ function updateAppViewportHeight() {
 const closedPanelHistory = []; // entries: 'chat' | 'actions' | 'editor'
 
 /** Minimum collapsed panel label bar height (px) */
-const LABEL_BAR_H_DESKTOP = 34;
-const LABEL_BAR_H_MOBILE  = 42;
+const LABEL_BAR_H_DESKTOP = 40;
+const LABEL_BAR_H_MOBILE  = 40;
 
 /** Debounce timer handle */
 let _recalcTimer = null;
@@ -1681,11 +1681,13 @@ function recalculateLayoutHeights() {
   const actRowH = getActionRowHeight();
   const AV_min  = a_active ? Math.round(Math.max(1, Math.min(3, countActionRows())) * actRowH + 8) : 0;
 
+  const topRowDividerH = (!is_wide) ? 12 : 0;
+
   let H_topmin;
   if (is_wide) {
     H_topmin = Math.max(c_active ? (CF + CV_min) : LABEL_BAR_H, a_active ? (AF + AV_min) : LABEL_BAR_H);
   } else {
-    H_topmin = (c_active ? (CF + CV_min) : LABEL_BAR_H) + (a_active ? (AF + AV_min) : LABEL_BAR_H);
+    H_topmin = (c_active ? (CF + CV_min) : LABEL_BAR_H) + (a_active ? (AF + AV_min) : LABEL_BAR_H) + topRowDividerH;
   }
 
   // ── Step 3: Minimum app height & H_excess ────────────────────────────
@@ -1761,7 +1763,8 @@ function recalculateLayoutHeights() {
     const CV = c_active ? (CV_min + share) : 0;
     const AV = a_active ? (AV_min + share) : 0;
 
-    const topRowH = (c_active ? (CF + CV) : LABEL_BAR_H) + (a_active ? (AF + AV) : LABEL_BAR_H);
+    const topRowDividerH = 12; // 4px divider + 4px top margin + 4px bottom margin in narrow stacked mode
+    const topRowH = (c_active ? (CF + CV) : LABEL_BAR_H) + (a_active ? (AF + AV) : LABEL_BAR_H) + topRowDividerH;
     applyPanelHeight(topRowEl, topRowH);
 
     if (c_active) {
