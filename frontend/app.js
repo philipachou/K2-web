@@ -1405,17 +1405,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 200);
   });
 
-  // iOS & OS keyboard proxy: focusin/focusout on editor with layout recalculation & auto-scroll
+  // iOS & OS keyboard proxy: focusin/focusout on editor with layout recalculation
   const editorBoxEl = document.getElementById('editor-box');
   if (editorBoxEl) {
-    editorBoxEl.addEventListener('focusin', () => {
-      scheduleRecalculateLayoutHeights(300);
-      setTimeout(() => {
-        const editorPanel = document.querySelector('.editor-panel');
-        if (editorPanel) editorPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }, 350);
-    });
-    editorBoxEl.addEventListener('focusout', () => scheduleRecalculateLayoutHeights(300));
+    editorBoxEl.addEventListener('focusin', () => scheduleRecalculateLayoutHeights(100));
+    editorBoxEl.addEventListener('focusout', () => scheduleRecalculateLayoutHeights(100));
   }
 
   // Initialize drag-to-slide listener
@@ -1886,6 +1880,10 @@ function recalculateLayoutHeights() {
   if (upperWorkspace) {
     const isOverflowing = H_excess < 0 || upperWorkspace.scrollHeight > upperWorkspace.clientHeight;
     upperWorkspace.style.overflowY = isOverflowing ? 'auto' : 'hidden';
+
+    if (!isOverflowing || use_os_keyboard) {
+      upperWorkspace.scrollTop = 0;
+    }
 
     const chatBody = chatPanel.querySelector('.chat-log');
     const actionsList = actionsPanel.querySelector('.actions-list');
