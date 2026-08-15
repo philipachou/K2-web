@@ -558,7 +558,10 @@ let settings = {
   hover_brightness: 1.2,
   use_os_keyboard: 0,
   auto_hide_k2_keyboard: 0,
-  tag_separator: "|"
+  tag_separator: "|",
+  grid_penalty_a: 1.0,
+  grid_penalty_b: 1.0,
+  grid_penalty_c: 1.0
 };
 
 function syncSettingsModalUI() {
@@ -579,6 +582,15 @@ function syncSettingsModalUI() {
 
   const gapYEl = document.getElementById("button-gap-y");
   if (gapYEl) gapYEl.value = settings.button_gap_y || 4;
+
+  const penAEl = document.getElementById("grid-penalty-a");
+  if (penAEl) penAEl.value = settings.grid_penalty_a ?? 1.0;
+
+  const penBEl = document.getElementById("grid-penalty-b");
+  if (penBEl) penBEl.value = settings.grid_penalty_b ?? 1.0;
+
+  const penCEl = document.getElementById("grid-penalty-c");
+  if (penCEl) penCEl.value = settings.grid_penalty_c ?? 1.0;
 
   const basinsEl = document.getElementById("basins-of-attraction-toggle");
   if (basinsEl) basinsEl.checked = settings.basins_of_attraction === 1;
@@ -1169,6 +1181,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const useOS = await getSetting("use_os_keyboard", "0");
   const autoHide = await getSetting("auto_hide_k2_keyboard", "0");
   const tagSep = await getSetting("tag_separator", "|");
+  const penA = await getSetting("grid_penalty_a", "1.0");
+  const penB = await getSetting("grid_penalty_b", "1.0");
+  const penC = await getSetting("grid_penalty_c", "1.0");
 
   document.getElementById("editor-box").style.fontSize = `${fontEd}px`;
   document.getElementById("font-editor").value = fontEd;
@@ -1179,6 +1194,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const btnGapYEl = document.getElementById("button-gap-y");
   if (btnGapXEl) btnGapXEl.value = buttonGapX;
   if (btnGapYEl) btnGapYEl.value = buttonGapY;
+  const penAEl = document.getElementById("grid-penalty-a");
+  const penBEl = document.getElementById("grid-penalty-b");
+  const penCEl = document.getElementById("grid-penalty-c");
+  if (penAEl) penAEl.value = penA;
+  if (penBEl) penBEl.value = penB;
+  if (penCEl) penCEl.value = penC;
+
   document.getElementById("basins-of-attraction-toggle").checked = (basins === "1");
   document.getElementById("use-os-keyboard-toggle").checked = (useOS === "1");
   document.getElementById("auto-hide-k2-keyboard-toggle").checked = (autoHide === "1");
@@ -1202,6 +1224,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   settings.min_target_height = parseInt(minH, 10) || 40;
   settings.button_gap_x = parseInt(buttonGapX, 10) || 4;
   settings.button_gap_y = parseInt(buttonGapY, 10) || 4;
+  settings.grid_penalty_a = parseFloat(penA) ?? 1.0;
+  settings.grid_penalty_b = parseFloat(penB) ?? 1.0;
+  settings.grid_penalty_c = parseFloat(penC) ?? 1.0;
   settings.basins_of_attraction = basins === "1" ? 1 : 0;
   settings.use_os_keyboard = useOS === "1" ? 1 : 0;
   settings.auto_hide_k2_keyboard = autoHide === "1" ? 1 : 0;
@@ -1350,12 +1375,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Dynamic Mathematical Toolbar Row Splitting Algorithm
+  // Dynamic Mathematical Toolbar Row Splitting & Grid Algorithm
   const layoutObserver = new ResizeObserver(() => updateToolbarLayouts());
   const editToolbarEl = document.querySelector(".edit-toolbar");
   const actionControlsEl = document.querySelector(".actions-header-controls");
+  const actionsGridEl = document.getElementById("actions-grid");
   if (editToolbarEl) layoutObserver.observe(editToolbarEl);
   if (actionControlsEl) layoutObserver.observe(actionControlsEl);
+  if (actionsGridEl) layoutObserver.observe(actionsGridEl);
 
   // iOS-aware event bindings for layout recalculation
   // Subscribe to BOTH resize events (iOS fires inconsistently)
@@ -1876,40 +1903,144 @@ function adjustEditorBoxHeight() {
 }
 
 function updateToolbarLayouts() {
-  const minW = settings.min_target_width || 40;
-  const isMobile = window.innerWidth <= 768;
+  const processToolbar = (containerSelector, itemSelector) => {
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+    const items = container.querySelectorAll(itemSelector);
+    if (!items.length) return;
 
-  // 1. Edit Toolbar
-  const editToolbar = document.querySelector(".edit-toolbar");
-  if (editToolbar) {
-    const buttons = editToolbar.querySelectorAll(".btn");
-    buttons.forEach(btn => {
-      btn.style.flex = "0 1 auto";
-      btn.style.minWidth = "0px";
-      const full = btn.querySelector(".btn-text-full");
-      const short = btn.querySelector(".btn-text-short");
-      if (full && short) {
-        full.style.display = isMobile ? "none" : "inline";
-        short.style.display = isMobile ? "inline" : "none";
+    const steps = [
+      { short: false, fontSize: "0.8rem" },
+      { short: false, fontSize: "0.65rem" },
+      { short: true,  fontSize: "0.8rem" },
+      { short: true,  fontSize: "0.65rem" }
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      items.forEach(item => {
+        item.style.fontSize = step.fontSize;
+        const trigger = item.querySelector(".custom-dropdown-trigger");
+        if (trigger) trigger.style.fontSize = step.fontSize;
+
+        const full = item.querySelector(".btn-text-full");
+        const short = item.querySelector(".btn-text-short");
+        if (full && short) {
+          full.style.display = step.short ? "none" : "inline";
+          short.style.display = step.short ? "inline" : "none";
+        }
+      });
+
+      if (container.scrollWidth <= container.clientWidth + 1) {
+        break; // Fits cleanly without overflowing
       }
-    });
+    }
+  };
+
+  processToolbar(".edit-toolbar", ".btn");
+  processToolbar(".actions-header-controls", ".mode-btn, .btn-settings-icon, .custom-dropdown");
+  chooseGridColumns();
+}
+
+let canvasContext = null;
+function getCanvasContext() {
+  if (!canvasContext) {
+    const canvas = document.createElement("canvas");
+    canvasContext = canvas.getContext("2d");
+  }
+  return canvasContext;
+}
+
+function evaluateLabelLines(ctx, label, availWidth) {
+  if (availWidth <= 0) return 3;
+  ctx.font = "600 12.8px Outfit, sans-serif";
+  const fullW = ctx.measureText(label).width;
+  if (fullW <= availWidth) return 1;
+
+  const words = label.split(/\s+/);
+  let linesCount = 1;
+  let currentLineW = 0;
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const wordW = ctx.measureText(word).width;
+    if (wordW > availWidth) {
+      return 3; // Word doesn't fit horizontally -> mid-word break required
+    }
+    const spaceW = (currentLineW > 0) ? ctx.measureText(" ").width : 0;
+    if (currentLineW + spaceW + wordW <= availWidth) {
+      currentLineW += spaceW + wordW;
+    } else {
+      linesCount++;
+      currentLineW = wordW;
+    }
   }
 
-  // 2. Action Header Controls
-  const actionControls = document.querySelector(".actions-header-controls");
-  if (actionControls) {
-    const items = actionControls.querySelectorAll(".mode-btn, .btn-settings-icon, .custom-dropdown");
-    items.forEach(item => {
-      item.style.flex = "0 1 auto";
-      item.style.minWidth = "0px";
-      const full = item.querySelector(".btn-text-full");
-      const short = item.querySelector(".btn-text-short");
-      if (full && short) {
-        full.style.display = isMobile ? "none" : "inline";
-        short.style.display = isMobile ? "inline" : "none";
+  return linesCount;
+}
+
+function chooseGridColumns() {
+  const grid = document.getElementById("actions-grid");
+  if (!grid) return;
+
+  const cards = grid.querySelectorAll(".action-card");
+  const totalButtons = cards.length;
+  if (totalButtons === 0) return;
+
+  const labels = Array.from(cards).map(card => card.textContent || "");
+
+  const gridWidth = grid.clientWidth - 8; // subtract padding
+  const gridHeight = grid.clientHeight;
+  if (gridWidth <= 0) return;
+
+  const minTargetWidth = settings.min_target_width || 50;
+  const minTargetHeight = settings.min_target_height || 40;
+  const buttonGapX = settings.button_gap_x || 4;
+  const buttonGapY = settings.button_gap_y || 4;
+
+  const penA = settings.grid_penalty_a ?? 1.0;
+  const penB = settings.grid_penalty_b ?? 1.0;
+  const penC = settings.grid_penalty_c ?? 1.0;
+
+  const maxColumns = Math.max(1, Math.floor((gridWidth + buttonGapX) / (minTargetWidth + buttonGapX)));
+  const visibleRows = Math.max(1, Math.floor((gridHeight + buttonGapY) / (minTargetHeight + buttonGapY)));
+
+  const ctx = getCanvasContext();
+  let bestC = 1;
+  let minPenalty = Infinity;
+
+  for (let c = 1; c <= maxColumns; c++) {
+    const btnW = (gridWidth - (c - 1) * buttonGapX) / c;
+    const availTextW = btnW - 12;
+
+    const visibleCapacity = visibleRows * c;
+    const outsideCount = Math.max(0, totalButtons - visibleCapacity);
+    const outsideFrac = outsideCount / totalButtons;
+
+    let twoLinerCount = 0;
+    let badLinerCount = 0;
+
+    for (let i = 0; i < totalButtons; i++) {
+      const lines = evaluateLabelLines(ctx, labels[i], availTextW);
+      if (lines === 2) {
+        twoLinerCount++;
+      } else if (lines >= 3) {
+        badLinerCount++;
       }
-    });
+    }
+
+    const twoLinerFrac = twoLinerCount / totalButtons;
+    const badLinerFrac = badLinerCount / totalButtons;
+
+    const penalty = penA * outsideFrac + penB * twoLinerFrac + penC * badLinerFrac;
+
+    if (penalty <= minPenalty) {
+      minPenalty = penalty;
+      bestC = c;
+    }
   }
+
+  grid.style.gridTemplateColumns = `repeat(${bestC}, minmax(0, 1fr))`;
 }
 
 function updateSettingsVisibility() {
@@ -2345,6 +2476,9 @@ function setupUIBindings() {
     const minH = document.getElementById("min-target-height").value;
     const btnGapXVal = document.getElementById("button-gap-x")?.value || "4";
     const btnGapYVal = document.getElementById("button-gap-y")?.value || "4";
+    const penAVal = document.getElementById("grid-penalty-a")?.value || "1";
+    const penBVal = document.getElementById("grid-penalty-b")?.value || "1";
+    const penCVal = document.getElementById("grid-penalty-c")?.value || "1";
     const basins = document.getElementById("basins-of-attraction-toggle").checked ? "1" : "0";
     const useOS = document.getElementById("use-os-keyboard-toggle").checked ? "1" : "0";
     const autoHide = document.getElementById("auto-hide-k2-keyboard-toggle").checked ? "1" : "0";
@@ -2370,6 +2504,9 @@ function setupUIBindings() {
     await setSetting("min_target_height", minH);
     await setSetting("button_gap_x", btnGapXVal);
     await setSetting("button_gap_y", btnGapYVal);
+    await setSetting("grid_penalty_a", penAVal);
+    await setSetting("grid_penalty_b", penBVal);
+    await setSetting("grid_penalty_c", penCVal);
     await setSetting("basins_of_attraction", basins);
     await setSetting("use_os_keyboard", useOS);
     await setSetting("auto_hide_k2_keyboard", autoHide);
@@ -2400,6 +2537,9 @@ function setupUIBindings() {
     settings.min_target_height = parseInt(minH, 10) || 40;
     settings.button_gap_x = parseInt(btnGapXVal, 10) || 4;
     settings.button_gap_y = parseInt(btnGapYVal, 10) || 4;
+    settings.grid_penalty_a = parseFloat(penAVal) ?? 1.0;
+    settings.grid_penalty_b = parseFloat(penBVal) ?? 1.0;
+    settings.grid_penalty_c = parseFloat(penCVal) ?? 1.0;
     settings.basins_of_attraction = basins === "1" ? 1 : 0;
     settings.use_os_keyboard = useOS === "1" ? 1 : 0;
     settings.auto_hide_k2_keyboard = autoHide === "1" ? 1 : 0;
@@ -3142,6 +3282,8 @@ async function renderSavedActions() {
 
     grid.appendChild(card);
   });
+
+  chooseGridColumns();
 }
 
 function handleCategoryClick(catName) {

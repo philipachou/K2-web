@@ -307,7 +307,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: var(--button-gap-x, 4px);
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -321,9 +321,9 @@ html, body {
   font-size: clamp(0.65rem, 1.2vw, 0.8rem);
   font-weight: 600;
   transition: all 0.15s ease;
-  flex: 0 1 auto !important;
+  flex: 0 0 auto !important;
   min-height: var(--min-target-height);
-  min-width: 0 !important;
+  min-width: var(--min-target-width) !important;
   max-width: 100% !important;
   display: flex;
   align-items: center;
@@ -364,7 +364,7 @@ html, body {
   position: relative;
   user-select: none;
   flex: 0 0 auto;
-  min-width: 65px;
+  min-width: var(--min-target-width) !important;
   height: var(--min-target-height) !important;
   min-height: var(--min-target-height) !important;
   display: flex;
@@ -682,8 +682,8 @@ html, body {
 }
 
 .edit-toolbar .btn {
-  flex: 0 1 auto !important;
-  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  min-width: var(--min-target-width) !important;
   max-width: 100% !important;
   padding: 6px 8px;
   font-size: clamp(0.7rem, 1.3vw, 0.85rem);
@@ -753,7 +753,7 @@ html, body {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: var(--min-target-width);
+  min-width: var(--min-target-width) !important;
   white-space: nowrap;
   touch-action: pan-x !important;
 }

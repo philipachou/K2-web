@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css?v=20260812_v109">
+  <link rel="stylesheet" href="style.css?v=20260815_v112">
 </head>
 <body>
   <div class="app-container">
@@ -238,6 +238,24 @@
           </div>
         </div>
 
+        <div class="form-group row-group" title="Grid column penalty weights (temporary, for tuning). A=fraction of buttons below the fold, B=fraction needing 2-line wrap, C=fraction needing 3+ lines or mid-word break.">
+          <div>
+            <label for="grid-penalty-a">Grid Penalty A (scroll):</label>
+            <input type="number" id="grid-penalty-a" value="1" min="0" max="10" step="0.1">
+          </div>
+          <div>
+            <label for="grid-penalty-b">Grid Penalty B (2-line):</label>
+            <input type="number" id="grid-penalty-b" value="1" min="0" max="10" step="0.1">
+          </div>
+        </div>
+        <div class="form-group row-group">
+          <div>
+            <label for="grid-penalty-c">Grid Penalty C (bad wrap):</label>
+            <input type="number" id="grid-penalty-c" value="1" min="0" max="10" step="0.1">
+          </div>
+          <div style="visibility: hidden;"></div>
+        </div>
+
         <div class="form-group row-group">
           <div>
             <label for="ha-url-input">Home Assistant URL:</label>
@@ -348,6 +366,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260812_v109"></script>
+  <script src="app.js?v=20260815_v112"></script>
 </body>
 </html>
