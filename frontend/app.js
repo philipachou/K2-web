@@ -1405,10 +1405,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 200);
   });
 
-  // iOS keyboard proxy: focusin/focusout on editor with 300ms delay
+  // iOS & OS keyboard proxy: focusin/focusout on editor with layout recalculation & auto-scroll
   const editorBoxEl = document.getElementById('editor-box');
   if (editorBoxEl) {
-    editorBoxEl.addEventListener('focusin',  () => scheduleRecalculateLayoutHeights(300));
+    editorBoxEl.addEventListener('focusin', () => {
+      scheduleRecalculateLayoutHeights(300);
+      setTimeout(() => {
+        const editorPanel = document.querySelector('.editor-panel');
+        if (editorPanel) editorPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }, 350);
+    });
     editorBoxEl.addEventListener('focusout', () => scheduleRecalculateLayoutHeights(300));
   }
 
@@ -1785,10 +1791,23 @@ function recalculateLayoutHeights() {
     topRowEl.style.flex = '0 0 auto';
 
     const n_top = (c_active ? 1 : 0) + (a_active ? 1 : 0);
-    const share = (n_top > 0 && H_excess > 0) ? (H_excess / n_top) : 0;
+    let CV = 0;
+    let AV = 0;
 
-    const CV = c_active ? (CV_min + share) : 0;
-    const AV = a_active ? (AV_min + share) : 0;
+    if (n_top > 0) {
+      if (H_excess > 0) {
+        const share = H_excess / n_top;
+        CV = c_active ? (CV_min + share) : 0;
+        AV = a_active ? (AV_min + share) : 0;
+      } else if (H_excess < 0) {
+        const reduction = Math.abs(H_excess) / n_top;
+        CV = c_active ? Math.max(16, CV_min - reduction) : 0;
+        AV = a_active ? Math.max(16, AV_min - reduction) : 0;
+      } else {
+        CV = c_active ? CV_min : 0;
+        AV = a_active ? AV_min : 0;
+      }
+    }
 
     const topRowDividerH = 12; // 4px divider + 4px top margin + 4px bottom margin in narrow stacked mode
     const topRowH = (c_active ? (CF + CV) : LABEL_BAR_H) + (a_active ? (AF + AV) : LABEL_BAR_H) + topRowDividerH;
@@ -1867,6 +1886,11 @@ function recalculateLayoutHeights() {
   if (upperWorkspace) {
     const isOverflowing = H_excess < 0 || upperWorkspace.scrollHeight > upperWorkspace.clientHeight;
     upperWorkspace.style.overflowY = isOverflowing ? 'auto' : 'hidden';
+
+    const chatBody = chatPanel.querySelector('.chat-log');
+    const actionsList = actionsPanel.querySelector('.actions-list');
+    if (chatBody) chatBody.style.overscrollBehavior = isOverflowing ? 'auto' : 'contain';
+    if (actionsList) actionsList.style.overscrollBehavior = isOverflowing ? 'auto' : 'contain';
   }
   if (appCont) {
     appCont.style.transform = '';
