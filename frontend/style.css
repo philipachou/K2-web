@@ -58,7 +58,8 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* bottom is intentionally omitted: JS sets top + height = visualViewport
+     so the container tracks the visible area above the virtual keyboard */
   overscroll-behavior: none;
 }
 

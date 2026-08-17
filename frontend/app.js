@@ -1894,8 +1894,18 @@ function recalculateLayoutHeights() {
     appCont.style.transform = '';
   }
 
-  // ── Update the --app-height CSS variable ─────────────────────────────
+  // ── Update the --app-height CSS variable & reposition app container ──
+  // When the OS virtual keyboard opens, visualViewport shrinks and offsetTop
+  // shifts. We pin the fixed app-container to the visual viewport so it
+  // always sits exactly above the keyboard on iOS, Android, and Windows touch.
   document.documentElement.style.setProperty('--app-height', `${viewport_H}px`);
+  if (appCont) {
+    const vvOffsetTop = (window.visualViewport ? window.visualViewport.offsetTop : 0);
+    appCont.style.top = `${Math.round(vvOffsetTop)}px`;
+    appCont.style.height = `${Math.round(viewport_H)}px`;
+    appCont.style.minHeight = `${Math.round(viewport_H)}px`;
+    appCont.style.maxHeight = `${Math.round(viewport_H)}px`;
+  }
 }
 
 function adjustEditorBoxHeight() {
