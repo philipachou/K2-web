@@ -899,8 +899,12 @@ Opened: `⚙️ Settings` button. Closed: "Close & Save" button at bottom.
 Full-screen overlay (`z-index: 1000`), max-width 580px, scrollable content.
 
 ### 16.2 Settings Controls (in order)
-1. Personal Profile textarea (`#biography-text`) + Compile button (`#btn-compile`)
-2. Data Operations grid (8 buttons: Import/Export for Profile, Contacts, Actions, Config)
+1. Personal Profile textarea (`#biography-text`) + Compile button (`#btn-compile`, label: `Compile Profile from Text`)
+2. Data Operations grid — exactly 8 buttons in a 2-column grid, in this order:
+   - Row 1 (Profile): `📁 Import Profile (Text)` (`#btn-import-profile-file`) | `🧠 Update Profile from Chat Log` (`#btn-sync-memory`)
+   - Row 2 (Contacts): `📇 Import Contacts (CSV)` (`#btn-import-contacts-file`) | `📤 Export Contacts (CSV)` (`#btn-export-contacts-csv`)
+   - Row 3 (Actions): `⚡ Import Actions (CSV)` (`#btn-import-actions-csv`) | `📤 Export Actions (CSV)` (`#btn-export-actions-csv`)
+   - Row 4 (Config): `📥 Import Config (JSON)` (`#btn-import-config`) | `⚙️ Export Config (JSON)` (`#btn-export-config`)
 3. Editor/Keyboard font sizes
 4. Button gaps (X, Y)
 5. Hover brightness
@@ -913,7 +917,7 @@ Full-screen overlay (`z-index: 1000`), max-width 580px, scrollable content.
 12. ElevenLabs Voice select (live preview on change)
 13. Local TTS Voice select
 14. Action Tag Separator input
-15. Close & Save button
+15. Close & Save button (`#btn-settings-close`, label: `Close & Save`)
 
 ### 16.3 Save Behavior
 On close: all settings written to IndexedDB, `settings` object updated, CSS vars updated, `applyKeyboardSettings()` called. If tag separator changed: all macro tags migrated. If biography changed: timestamp recorded.
@@ -1000,25 +1004,28 @@ Body: `{file_content, target_store, mode, existing_context}`. Returns `{items}`.
 ## 18. XML Operation System
 
 ### 18.1 Operations Table
+
+The canonical operation `type` strings are listed below. **Each `type` has exactly one canonical string.** The system prompt must instruct the AI to use these exact strings, and the backend must route exactly these strings — no synonyms.
+
 | `type` | Executed | Effect |
 |---|---|---|
-| `home_assistant` | Backend | Calls HA API; logs status to chat |
-| `speak` | Backend → frontend | `speakCloudTTS(phrase)` |
-| `inject` | Backend → frontend | `injectTextToEditor(text)` + clipboard |
-| `share` | Frontend | `navigator.share()` or clipboard |
-| `email` | Frontend | Opens `mailto:` URL |
-| `sms` | Frontend | Opens `sms:` URL + clipboard copy |
-| `export_file` | Frontend | Downloads file blob |
-| `show_image` | Frontend | Renders `.k2-image-card` |
-| `set_timer` | Frontend | JS countdown; chime + TTS on expiry |
-| `set_alarm` | Frontend | Logs confirmation to chat only (no OS alarm) |
-| `set_reminder` | Frontend | Logs confirmation to chat only (no OS reminder) |
-| `profile` | Frontend | CRUD on personal_summary store |
-| `contact` | Frontend | CRUD on contacts store |
-| `setting` | Frontend | Updates settings + live apply |
-| `macro` | Frontend | CRUD on saved_actions store |
-| `get_web_image` | Backend | Wikipedia image search → `show_image` |
-| `generate_image` | Backend | Gemini image generation → `show_image` |
+| `home_assistant` | Backend | Calls HA REST API; derives domain from `entity_id` prefix (e.g. `climate.thermostat` → domain `climate`, path `/api/services/climate/{service}`). Logs status to chat. |
+| `speak` | Backend → frontend | Backend extracts `phrase` attribute; appends `{type: "speak", text: phrase}` to `client_actions`. Frontend calls `speakCloudTTS(phrase)`. |
+| `inject` | Backend → frontend | Backend extracts `text` attribute; appends `{type: "copy", text}` to `client_actions`. Frontend calls `injectTextToEditor(text)` + clipboard. |
+| `share` | Frontend | `navigator.share()` with `title`, `text`, `url` attributes; falls back to clipboard. |
+| `email` | Frontend | Opens `mailto:{recipient}?subject={subject}&body={body}` URL. |
+| `sms` | Frontend | Opens `sms:{phone}?body={message}` URL; copies body to clipboard as fallback. |
+| `export_file` | Frontend | Downloads file blob with `filename` and `content` attributes. |
+| `show_image` | Frontend | Renders `.k2-image-card` with `url` and `caption` attributes. `show_image` tags are **not** stripped from the reply text (unlike all other operation types) so the frontend can render the card inline. |
+| `set_timer` | Frontend | JS countdown using `seconds` and `label` attributes; plays chime + TTS on expiry. |
+| `set_alarm` | Frontend | Logs confirmation to chat only (no OS alarm). Uses `time` and `label` attributes. |
+| `set_reminder` | Frontend | Logs confirmation to chat only (no OS reminder). Uses `time` and `label` attributes. |
+| `profile` | Frontend | CRUD on `personal_summary` store. Attributes: `action` (add/set/update/delete), `key` (category), `content`, `old_content`. |
+| `contact` | Frontend | CRUD on `contacts` store. Same attributes as profile. |
+| `setting` | Frontend | Updates settings + applies side effects immediately. Attributes: `action` (always `set`), `key`, `content`. |
+| `macro` | Frontend | CRUD on `saved_actions` store. Attributes: `action`, `key` (tag), `content` (action_text), `color`, `old_content`. |
+| `get_web_image` | Backend | Wikipedia image search for `query` attribute → resolves to `show_image` client action. |
+| `generate_image` | Backend | Gemini image generation for `prompt` attribute → resolves to `show_image` client action with base64 data URL. |
 
 ### 18.2 Suggestions Block
 ```xml
@@ -1036,6 +1043,10 @@ Tags truncated to 15 characters. Fallback: regex extraction of numbered list. Fi
 > **[INTENT — Speak/Inject Two-Step]** `speak` and `inject` operations are handled server-side (via `thread_local` storage) and then executed client-side via `client_actions`. This two-step approach allows the backend to parse XML first, then the frontend executes in order.
 
 > **[DIVERGENCE — set_alarm / set_reminder are Stubs]** `set_alarm` and `set_reminder` only log to the chat log — no actual OS alarm is set. On Windows there is no web API for system alarms. Current system messages say "⏰ Alarm set for {time}" which implies success when no OS alarm was set. See R2.5.
+
+> **[DIVERGENCE — `get_web_image` Function Undefined]** In `backend/main.py`, the operation type `get_web_image` (and alias `get_image`) is routed to a Python call `get_web_image(query)` which does not exist — only `get_wikipedia_image()` is defined. If the AI emits `<operation type="get_web_image" .../>` (which the system prompt explicitly instructs it to do), the backend will raise a `NameError` and crash the request. **Intent:** `get_web_image` should route to `get_wikipedia_image()`. This is a pre-existing bug to be fixed.
+
+> **[DIVERGENCE — Undocumented Operation Type Aliases]** The backend silently accepts multiple alias strings for the same operation: `get_image` (for `get_web_image`), `wikipedia_image` and `get_wikipedia_image` (for the Wikipedia image search), `generate_ai_image` and `ai_image` (for `generate_image`). These aliases were added ad-hoc as defensive coding but are not design intent — the canonical string is the only one that should be used. **Intent:** One canonical `type` string per operation, matching exactly between the AI system prompt and the backend router. The aliases should be removed once the canonical strings are confirmed.
 
 > **[OPEN QUESTION — Misleading Alarm/Reminder Messages]** Should `set_alarm` and `set_reminder` messages clearly state that no OS alarm was set? See R2.5.
 
