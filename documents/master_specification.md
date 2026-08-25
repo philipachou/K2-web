@@ -315,7 +315,12 @@ AI messages while generating show `.chat-message.cloud_ai.thinking` — italic, 
 AI messages are rendered as HTML using a markdown-to-HTML converter (`formatMarkdownContent()`). Supports bold/italic, inline code, code blocks, inline images (via `<operation type="show_image" .../>` rendered as `.k2-image-card`), and suggestion pills.
 
 ### 5.4 Suggestion Pills
-Up to 3 clickable `.chat-suggestion-pill` buttons shown below each AI message. Clicking calls `applySuggestionToEditor(actionText)`, placing the action text into the editor box.
+Up to 3 clickable `.chat-suggestion-pill` buttons shown below each AI message. Clicking calls `applySuggestionToEditor(actionText)`, which:
+1. **Replaces** the entire `editor-box.value` with `actionText` (does NOT append to existing content).
+2. Resets `loadedActionTag = null` (to prevent an accidental Save from overwriting a previously loaded macro).
+3. Sets caret to end of inserted text (`selectionStart = selectionEnd = actionText.length`).
+4. Updates predictions and keyboard coloring.
+5. Focuses `editor-box`.
 
 ### 5.5 Active Timers Display
 Timer chips display `⏱️ [label]: MM:SS` with a ✖ cancel button. Container hidden when no timers; gains `.has-timers` class when active.
@@ -449,9 +454,9 @@ Each record: `{tag, action_text, color, timestamp}`. Tag uses separator-delimite
 ### 7.1 Toolbar Buttons
 | ID | Color | Full label | Short | Action |
 |---|---|---|---|---|
-| `btn-clear` | Gray | Del All | 🗑️ All | Clears editor, resets `loadedActionTag` |
-| `btn-del-word` | Gray | Del Word | ⌫ Word | Delete word before cursor (or selection) |
-| `btn-del-char` | Gray | Del Char | ⌫ Char | Delete char before cursor (or selection) |
+| `btn-clear` | Gray | Del All | 🗑️ All | Sets `editor-box.value = ""`, resets `loadedActionTag = null`, resets `previousCaretPosition = 0`, refreshes predictions/keyboard coloring, restores focus to `editor-box`. Does NOT stop active TTS, cancel timers, or clear chat history. |
+| `btn-del-word` | Gray | Del Word | ⌫ Word | If selection active: deletes selected range. If no selection: deletes from `selectionStart` backward to preceding word boundary (including trailing spaces). |
+| `btn-del-char` | Gray | Del Char | ⌫ Char | If selection active: deletes selected range. If no selection: deletes the single character immediately preceding `selectionStart`. |
 | `btn-dictate` | Purple | Dictate | 🎙️ Mic | Toggle audio recording |
 | `btn-cloud-tts` | Green | @CloudTTS | ☁️ TTS | Cloud TTS of editor content |
 | `btn-local-tts` | Green | @LocalTTS | 🔊 TTS | Local TTS of editor content |
@@ -513,7 +518,7 @@ When open: `2 × min_target_height + 14px` (= 94px at defaults).
 Show prefix in dimmer color + suffix in full color. Clicking: replaces current word prefix at cursor with full word + trailing space. Clears `lastApiPredictions` cache.
 
 ### 8.4 Phrase Prediction Buttons
-Clicking: appends phrase to text before cursor + trailing space.
+Clicking inserts `phrase + " "` at the current cursor position (`selectionStart`), preserving any text after the cursor. Caret (`selectionStart = selectionEnd`) is placed immediately after the inserted phrase+space. Does not replace existing editor text unless a range is selected. This applies in FIM mode as well — text after the cursor is not disturbed.
 
 ### 8.5 Horizontal Scrolling
 Both rows support dwell-scroll (20% edge zones, ±18px/frame max) and click-drag slide (>6px drag threshold cancels tap).
@@ -554,6 +559,11 @@ Toggled by clicking Shift. While active: uppercase display, next char is upperca
 
 ### 9.4 Tap Handling
 Dual touchstart + click handlers. `mousedown` calls `e.preventDefault()` to prevent editor blur.
+
+Character insertion semantics for all K2 keyboard key presses:
+- **Text selected** (`selectionStart !== selectionEnd`): The key action replaces the selected range. Character/Space keys replace selection with the new character; Backspace deletes the selected range.
+- **No selection** (`selectionStart === selectionEnd`): Character and Space keys insert at `selectionStart`. Backspace deletes the single character immediately preceding `selectionStart`.
+- After each key action: caret (`selectionStart = selectionEnd`) is set to the position immediately after the inserted/modified range, `previousCaretPosition` is updated, and focus is restored to `editor-box`.
 
 ### 9.5 Fixed Height (when open, docked mode)
 `5 × min_target_height + 4 × button_gap_y + 8px` (= 224px at defaults).
@@ -671,13 +681,15 @@ All heights applied via `applyPanelHeight(el, px)` which sets `style.height/minH
 ### 11.2 Effect of Mode on Action Button Click
 | Mode | Effect |
 |---|---|
-| `Edit` | `insertTextAtCursor(action_text)`, sets `loadedActionTag` |
+| `Edit` | `insertTextAtCursor(action_text)`, sets `loadedActionTag = tag` |
 | `@CloudTTS` | `speakCloudTTS(action_text)` |
 | `@LocalTTS` | `speakLocalTTS(action_text)` |
 | `Copy` | Copies to clipboard, chat log confirmation |
 | `Delete` | `confirm()` dialog then `deleteAction(tag)` |
 | `@CloudAI` | Sets editor to `action_text`, calls `executeSendCloud()` |
 | `Recolor` | Saves action with selected hex color |
+
+**`loadedActionTag` mutation rule:** Only clicking an action button in `Edit` mode may set `loadedActionTag`. Clicking an action button in `@CloudTTS`, `@LocalTTS`, `Copy`, `Delete`, `@CloudAI`, or `Recolor` mode must NOT read or modify `loadedActionTag` in any way.
 
 ### 11.3 Effect of Mode on Category Click
 - Normal/Edit/TTS/Copy/AI: drills into category
@@ -775,6 +787,8 @@ When one TTS service is active, the other's button is disabled. When cloud TTS i
 
 ### 13.2 Retry Logic
 Up to 3 attempts; 30s timeout per attempt; 1.5s delay between retries. Shows attempt count in "thinking" bubble.
+
+If all 3 attempts fail: the `.thinking` element is removed from the DOM, and a `.chat-message.system` entry is appended to the chat log with the failure reason (e.g., `"Cloud AI request failed after 3 retries: [error message]"`). Error notifications MUST be logged as system messages — never as blocking browser dialogs (`alert()` or `confirm()`), which are inaccessible to eye-gaze users.
 
 ### 13.3 Context Sent
 profile_summary, contacts_summary, settings_summary, macros_summary (saved macros + current suggestions), app_manual, home_assistant_url/token, last 10 chat messages as history.
@@ -921,6 +935,8 @@ Full-screen overlay (`z-index: 1000`), max-width 580px, scrollable content.
 
 ### 16.3 Save Behavior
 On close: all settings written to IndexedDB, `settings` object updated, CSS vars updated, `applyKeyboardSettings()` called. If tag separator changed: all macro tags migrated. If biography changed: timestamp recorded.
+
+**Commit timing:** Settings form controls update only a temporary in-memory draft while the modal is open. Settings are committed to IndexedDB and the live `settings` object ONLY when `#btn-settings-close` is explicitly clicked. No `change` or `input` event on any settings control should write to IndexedDB or alter live behavior while the modal is open. The modal has no "Cancel" button; however, a future implementation that adds one must discard the draft without writing.
 
 ### 16.4 AI-Driven Settings
 `<operation type="setting" action="set" key="..." content="..."/>`. Key normalized (underscores, abbreviations). Boolean values normalized (`1/true/on/enable/yes` → `"1"`, `0/false/off/disable/no` → `"0"`). Side effects applied immediately.
