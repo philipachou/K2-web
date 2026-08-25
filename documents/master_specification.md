@@ -1,5 +1,5 @@
 # K2-web Master Specification
-**Version:** 2026-08-24 (merged from implemented, intended, and recommended)
+**Version:** 2026-08-25
 **Source files audited:** `frontend/index.html`, `frontend/app.js`, `frontend/style.css`, `backend/main.py`
 
 ---
@@ -39,7 +39,6 @@ Before making any code change:
 - To approve a RECOMMENDATION for implementation, write `**[Phil]** Approved — please implement.` on the RECOMMENDATION block, then ask the agent.
 - To reject a RECOMMENDATION, delete its block from this document.
 - To propose a new change, add a `> **[RECOMMENDATION — Rn.n: Title]**` block in the relevant section, or ask the agent to draft one.
-- When a RECOMMENDATION is implemented and verified, the three individual source files (`master_specification_implemented.md`, `master_specification_intended.md`, `master_specification_recommended.md`) may be deleted. Until then they remain as backups.
 
 ---
 
@@ -1177,4 +1176,4 @@ Single dark theme. No light mode implemented.
 ---
 
 *End of K2-web Master Specification*  
-*Version: 2026-08-24*
+*Version: 2026-08-25*
