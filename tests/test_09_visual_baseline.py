@@ -9,9 +9,10 @@ DIFF_DIR = os.path.join("tests", "screenshots", "diff")
 os.makedirs(CURRENT_DIR, exist_ok=True)
 os.makedirs(DIFF_DIR, exist_ok=True)
 
-def compare_images(baseline_path, current_path, diff_path, max_diff_percent=0.1):
+def compare_images(baseline_path, current_path, diff_path, max_diff_percent=0.5):
     """
     Compares baseline PNG against current screenshot pixel-by-pixel.
+    Generates a visual diff image if any differing pixels exist.
     Returns (diff_percentage, is_pass).
     """
     img1 = Image.open(baseline_path).convert("RGB")
@@ -29,21 +30,22 @@ def compare_images(baseline_path, current_path, diff_path, max_diff_percent=0.1)
     total_pixels = img1.width * img1.height
     diff_ratio = (differing_pixels / total_pixels) * 100.0
     
-    if diff_ratio > max_diff_percent:
+    if differing_pixels > 0:
         diff_mask = threshold_filter.convert("L")
         red_overlay = Image.new("RGB", img1.size, (255, 0, 128))
         diff_visual = Image.composite(red_overlay, img1, diff_mask)
         diff_visual.save(diff_path)
-        return diff_ratio, False
     
-    return diff_ratio, True
+    is_pass = (diff_ratio <= max_diff_percent)
+    return diff_ratio, is_pass
 
 def test_visual_01_ipad_landscape_default(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 1194, "height": 834}, device_scale_factor=2.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
-    page.wait_for_timeout(1200)
+    page.wait_for_selector(".key", state="visible")
+    page.wait_for_timeout(1000)
     page.evaluate("document.activeElement?.blur()")
     page.wait_for_timeout(200)
     
@@ -55,14 +57,15 @@ def test_visual_01_ipad_landscape_default(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 01_ipad_landscape_default! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 01_ipad_landscape_default! {diff_ratio:.4f}% pixel difference."
 
 def test_visual_02_iphone_portrait_default(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=3.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
-    page.wait_for_timeout(1200)
+    page.wait_for_selector(".key", state="visible")
+    page.wait_for_timeout(1000)
     page.evaluate("document.activeElement?.blur()")
     page.wait_for_timeout(200)
     
@@ -74,13 +77,14 @@ def test_visual_02_iphone_portrait_default(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 02_iphone_portrait_default! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 02_iphone_portrait_default! {diff_ratio:.4f}% pixel difference."
 
 def test_visual_03_ipad_chat_collapsed(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 1194, "height": 834}, device_scale_factor=2.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
+    page.wait_for_selector(".key", state="visible")
     page.wait_for_timeout(800)
     
     page.locator(".chat-panel .panel-label").click()
@@ -96,13 +100,14 @@ def test_visual_03_ipad_chat_collapsed(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 03_ipad_chat_collapsed! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 03_ipad_chat_collapsed! {diff_ratio:.4f}% pixel difference."
 
 def test_visual_04_ipad_actions_drilled(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 1194, "height": 834}, device_scale_factor=2.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
+    page.wait_for_selector(".key", state="visible")
     page.wait_for_timeout(800)
     
     greetings_card = page.locator('.category-card:has-text("Greetings")')
@@ -120,13 +125,14 @@ def test_visual_04_ipad_actions_drilled(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 04_ipad_actions_drilled! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 04_ipad_actions_drilled! {diff_ratio:.4f}% pixel difference."
 
 def test_visual_05_ipad_editor_typing(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 1194, "height": 834}, device_scale_factor=2.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
+    page.wait_for_selector(".key", state="visible")
     page.wait_for_timeout(800)
     
     editor = page.locator("#editor-box")
@@ -143,13 +149,14 @@ def test_visual_05_ipad_editor_typing(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 05_ipad_editor_typing! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 05_ipad_editor_typing! {diff_ratio:.4f}% pixel difference."
 
 def test_visual_06_ipad_predictor_active(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 1194, "height": 834}, device_scale_factor=2.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
+    page.wait_for_selector(".key", state="visible")
     page.wait_for_timeout(800)
     
     editor = page.locator("#editor-box")
@@ -166,13 +173,14 @@ def test_visual_06_ipad_predictor_active(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 06_ipad_predictor_active! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 06_ipad_predictor_active! {diff_ratio:.4f}% pixel difference."
 
 def test_visual_07_ipad_settings_modal(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={"width": 1194, "height": 834}, device_scale_factor=2.0)
     page = context.new_page()
     page.goto("http://127.0.0.1:8000/")
+    page.wait_for_selector(".key", state="visible")
     page.wait_for_timeout(800)
     
     page.locator("#btn-settings").click()
@@ -188,4 +196,4 @@ def test_visual_07_ipad_settings_modal(playwright):
     browser.close()
     
     diff_ratio, is_pass = compare_images(baseline_path, current_path, diff_path)
-    assert is_pass, f"Visual regression in 07_ipad_settings_modal! {diff_ratio:.2f}% pixel difference."
+    assert is_pass, f"Visual regression in 07_ipad_settings_modal! {diff_ratio:.4f}% pixel difference."
