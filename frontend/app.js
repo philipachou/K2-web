@@ -1,10 +1,10 @@
 import { initDatabase, getSetting, setSetting, getAllSettings, getSavedActions, saveAction, deleteAction, getChatHistory, addChatMessage, getPersonalSummary, setPersonalSummary, getContacts, saveContact, deleteContact, setContacts, seedDefaults, APP_MANUAL, db } from './js/db.js';
 import { DICTIONARY_TEXT, DICTIONARY, DEFAULT_FREQS, BIGRAM_MATRIX, lastApiPredictions, setLastApiPredictions, clearLastApiPredictions, getNextCharProbabilities, getBlendedCharProbabilities, normalizeProbabilities, executeFetchWords, executeFetchPhrases, attachPredictionButtonTouchHandler, renderWordPredictions, renderPhrasePredictions } from './js/predictions.js';
+import { KEYBOARD_LAYOUT, isShiftActive, setShiftActive, toggleShift, renderKeyboard } from './js/keyboard.js';
 
 
 // --- Global State ---
 let activeMode = "Edit"; // Edit, Delete, @CloudTTS, @LocalTTS, Copy, @CloudAI, Recolor
-let shiftActive = false;
 let previousCaretPosition = 0;
 let isRecording = false;
 let mediaRecorder = null;
@@ -516,6 +516,12 @@ async function initApp() {
   // Initial layout calculation — wait for paint so getBoundingClientRect() is accurate
   requestAnimationFrame(() => scheduleRecalculateLayoutHeights(150));
   setTimeout(updateToolbarLayouts, 50);
+  if (document.fonts) {
+    document.fonts.ready.then(() => {
+      updateToolbarLayouts();
+      scheduleRecalculateLayoutHeights(0);
+    });
+  }
 
   updateSettingsVisibility();
   applyKeyboardSettings();
@@ -1344,13 +1350,13 @@ function setupUIBindings() {
   editor.addEventListener("click", () => {
     if (editor.value === "Type here...") {
       editor.setSelectionRange(0, 0);
-    } else if (shiftActive) {
+    } else if (isShiftActive()) {
       // Shift-selection extension rule
       const start = Math.min(previousCaretPosition, editor.selectionStart);
       const end = Math.max(previousCaretPosition, editor.selectionStart);
       editor.setSelectionRange(start, end);
-      shiftActive = false;
-      renderKeyboard(getBlendedCharProbabilities(editor.value));
+      setShiftActive(false);
+      renderAppKeyboard(getBlendedCharProbabilities(editor.value));
     }
     previousCaretPosition = editor.selectionStart;
     updatePredictionsAndKeyboard();
@@ -1382,17 +1388,17 @@ function setupUIBindings() {
         deleteNextChar();
       } else if (key.length === 1) {
         e.preventDefault();
-        const char = shiftActive ? key.toUpperCase() : key.toLowerCase();
+        const char = isShiftActive() ? key.toUpperCase() : key.toLowerCase();
         insertTextAtCursor(char);
-        if (shiftActive) {
-          shiftActive = false;
+        if (isShiftActive()) {
+          setShiftActive(false);
         }
       }
     } else {
-      if (key.length === 1 && shiftActive) {
+      if (key.length === 1 && isShiftActive()) {
         e.preventDefault();
         insertTextAtCursor(key.toUpperCase());
-        shiftActive = false;
+        setShiftActive(false);
       }
     }
   });
@@ -1935,7 +1941,7 @@ function updatePredictionsAndKeyboard() {
   }
 
   // 4. Redraw Keyboard probabilities HSL coloring
-  renderKeyboard(charProbs);
+  renderAppKeyboard(charProbs);
 }
 
 // Separate helper for async API updates to prevent fetch loops
@@ -2001,108 +2007,31 @@ function updatePredictionsAndKeyboardOnly() {
     updatePredictionsAndKeyboard();
     editor.focus();
   });
-  renderKeyboard(charProbs);
+  renderAppKeyboard(charProbs);
 }
 
-function renderKeyboard(probabilities) {
-  const container = document.getElementById("keyboard");
-  container.innerHTML = "";
+function renderAppKeyboard(probabilities) {
+  renderKeyboard(probabilities, settings.font_size_keyboard, (key) => {
+    const target = getActiveInputTarget();
+    if (target) {
+      target.focus();
+    }
 
-  const layout = [
-    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
-    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-    ["z", "x", "c", "v", "b", "n", "m", ",", "."],
-    ["Shift", "Space", "Backspace"]
-  ];
-
-  const fontKy = settings.font_size_keyboard;
-  const maxObserved = Math.max(...Object.values(probabilities));
-
-  layout.forEach((row, rowIdx) => {
-    const rowDiv = document.createElement("div");
-    rowDiv.className = "keyboard-row";
-
-    row.forEach(key => {
-      const keyBtn = document.createElement("div");
-      keyBtn.className = "key";
-      keyBtn.style.fontSize = `${fontKy}px`;
-
-      // Base layouts weights
-      if (rowIdx === 4) {
-        // Space, Shift, Backspace
-        keyBtn.classList.add("special-key");
-        keyBtn.textContent = key.toUpperCase();
-        if (key === "Space") {
-          keyBtn.style.flex = "4";
-          keyBtn.textContent = "SPACE";
-        } else {
-          keyBtn.style.flex = "2";
-        }
-        if (key === "Shift" && shiftActive) {
-          keyBtn.classList.add("active");
-        }
-      } else {
-        // Standard QWERTY character keys
-        keyBtn.textContent = shiftActive ? key.toUpperCase() : key.toLowerCase();
-        keyBtn.style.flex = "1";
-
-        // HSL Dynamic coloring
-        const prob = probabilities[key.toLowerCase()] || 0;
-        const ratio = maxObserved > 0 ? Math.min(1.0, prob / maxObserved) : 0;
-
-        const hue = Math.round(ratio * 120); // Scale Hue Red/Gray (0) -> Green (120)
-        const sat = Math.round(15 + ratio * 65); // Saturation scales up with prob
-        const lit = Math.round(25 + ratio * 15);  // Lightness scales up slightly
-
-        keyBtn.style.backgroundColor = `hsl(${hue}, ${sat}%, ${lit}%)`;
-        keyBtn.style.borderColor = `hsl(${hue}, ${sat}%, ${lit + 5}%)`;
+    if (key === "Shift") {
+      toggleShift();
+      renderAppKeyboard(probabilities);
+    } else if (key === "Backspace") {
+      deleteChar();
+    } else if (key === "Space") {
+      insertTextAtCursor(" ");
+    } else {
+      const char = isShiftActive() ? key.toUpperCase() : key.toLowerCase();
+      insertTextAtCursor(char);
+      if (isShiftActive()) {
+        setShiftActive(false);
+        renderAppKeyboard(probabilities);
       }
-
-      // Key Tap dispatch handlers (0ms touch response + mouse compatibility)
-      let handledByTouch = false;
-
-      const executeKeyAction = () => {
-        const target = getActiveInputTarget();
-        if (target) {
-          target.focus();
-        }
-
-        if (key === "Shift") {
-          shiftActive = !shiftActive;
-          renderKeyboard(probabilities);
-        } else if (key === "Backspace") {
-          deleteChar();
-        } else if (key === "Space") {
-          insertTextAtCursor(" ");
-        } else {
-          const char = shiftActive ? key.toUpperCase() : key.toLowerCase();
-          insertTextAtCursor(char);
-          if (shiftActive) {
-            shiftActive = false;
-            renderKeyboard(probabilities);
-          }
-        }
-      };
-
-      keyBtn.addEventListener("mousedown", (e) => e.preventDefault());
-
-      keyBtn.addEventListener("touchstart", (e) => {
-        e.preventDefault(); // Prevent editor blur and OS virtual keyboard popup
-        handledByTouch = true;
-        executeKeyAction();
-        setTimeout(() => { handledByTouch = false; }, 300);
-      });
-
-      keyBtn.onclick = (e) => {
-        if (handledByTouch) return;
-        executeKeyAction();
-      };
-
-      rowDiv.appendChild(keyBtn);
-    });
-
-    container.appendChild(rowDiv);
+    }
   });
 }
 
