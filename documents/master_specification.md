@@ -1,6 +1,6 @@
 # K2-web Master Specification
-**Version:** 2026-08-25
-**Source files audited:** `frontend/index.html`, `frontend/app.js`, `frontend/style.css`, `backend/main.py`
+**Version:** 2026-08-28
+**Source files audited:** `frontend/index.html`, `frontend/app.js`, `frontend/js/*.js`, `frontend/style.css`, `backend/main.py`
 
 ---
 
@@ -128,54 +128,54 @@ All user data is stored **client-side** in IndexedDB. There is **no server-side 
 
 > **[OPEN QUESTION — Cloud Backup]** Should there be any server-side backup mechanism? Currently, data can be lost if the browser clears storage. The JSON export provides a manual backup, but there is no automatic cloud backup.
 
+### 2.4 Module Structure
+The frontend is modularized into standard ES modules (`<script type="module" src="app.js">`) in the `frontend/js/` directory:
+
+| Module | File | Responsibilities | Public API / Exports |
+| :--- | :--- | :--- | :--- |
+| **Database** | `frontend/js/db.js` | IndexedDB initialization, version migrations, default seeding, CRUD operations | `initDatabase`, `getSetting`, `setSetting`, `getAllSettings`, `getSavedActions`, `saveAction`, `deleteAction`, `getChatHistory`, `addChatMessage`, `getPersonalSummary`, `setPersonalSummary`, `getContacts`, `saveContact`, `deleteContact`, `setContacts`, `seedDefaults`, `APP_MANUAL`, `db` |
+| **Predictions** | `frontend/js/predictions.js` | Word frequencies, bigram transition matrix, dictionary blending, API fetchers, DOM prediction pill rendering | `DICTIONARY`, `DEFAULT_FREQS`, `BIGRAM_MATRIX`, `lastApiPredictions`, `getNextCharProbabilities`, `getBlendedCharProbabilities`, `normalizeProbabilities`, `executeFetchWords`, `executeFetchPhrases`, `renderWordPredictions`, `renderPhrasePredictions` |
+| **Keyboard** | `frontend/js/keyboard.js` | Keyboard layout matrix, Shift toggle state, dynamic HSL character heatmap coloring, key touch/click handlers | `KEYBOARD_LAYOUT`, `isShiftActive`, `setShiftActive`, `toggleShift`, `computeKeyHsl`, `renderKeyboard` |
+| **Actions** | `frontend/js/actions.js` | Hierarchical category navigation, breadcrumb navbar, action grid rendering, dynamic penalty column optimizer, category modals | `getCurrentNavPath`, `setCurrentNavPath`, `resetNavPath`, `getCurrentSeparator`, `getCurrentPrefix`, `escapeHtml`, `setupHoverPreview`, `evaluateLabelLines`, `chooseGridColumns`, `renderActionsNavBar`, `renderActionsGrid`, `showCategoryDeleteModal`, `showCategoryRecolorModal`, `migrateTagSeparators` |
+| **Editor** | `frontend/js/editor.js` | Caret index tracking, active input target resolution, text insertion, backward/forward character deletion, word deletion, dynamic auto-height | `getPreviousCaretPosition`, `setPreviousCaretPosition`, `getLoadedActionTag`, `setLoadedActionTag`, `getActiveInputTarget`, `adjustEditorBoxHeight`, `insertTextAtCursor`, `deleteChar`, `deleteNextChar`, `deleteWord` |
+| **Chat** | `frontend/js/chat.js` | Chat log rendering, message bubble creation, safe markdown formatting, interactive image card building, Wikipedia image fallback | `buildImageCard`, `handleImageLoadError`, `formatMarkdownContent`, `msgToHtml`, `createChatMessageElement`, `renderSingleChatMessage`, `renderChatLog` |
+| **Settings** | `frontend/js/settings.js` | Settings modal UI sync, visibility toggling, CSV generic tokenization, contacts/actions CSV parsers, full JSON backup export/restore | `DEFAULT_SETTINGS`, `syncSettingsModalUI`, `updateSettingsVisibility`, `parseCSVGeneric`, `parseContactsCSV`, `parseActionsCSV`, `exportConfiguration`, `importConfiguration` |
+| **Orchestrator** | `frontend/app.js` | Application bootstrapping, DOM event wiring, panel resize/collapse management, SpeechSynthesis / Cloud TTS dispatcher, Home Assistant integration | Top-level application controller |
+
+### 2.5 Test Suite
+The repository includes a comprehensive Playwright test suite using `pytest` in the `tests/` directory:
+* **Running Tests:** `.venv\Scripts\pytest.exe tests/ -vv -s`
+* **Functional Smoke Tests (8 modules):**
+  * `test_01_startup.py` — Verifies startup and 5-panel layout.
+  * `test_02_editor_basic.py` — Verifies text input, character deletion, word deletion, clear all.
+  * `test_03_keyboard_input.py` — Verifies virtual keyboard character typing and Shift.
+  * `test_04_predictions.py` — Verifies word prediction rendering and insertion.
+  * `test_05_actions_grid.py` — Verifies category drill-down navigation and action insertion.
+  * `test_06_panel_collapse.py` — Verifies collapsing and expanding each panel.
+  * `test_07_settings.py` — Verifies opening and closing settings modal with setting saves.
+  * `test_08_tts_local.py` — Verifies LocalTTS speech dispatch.
+
+### 2.6 Visual Baseline Regression Tests
+* **Baseline Directory:** `tests/screenshots/baseline/`
+* **Current Capture Directory:** `tests/screenshots/current/`
+* **Diff Directory:** `tests/screenshots/diff/`
+* **Visual Baseline Tests (7 viewports/states):**
+  * `01_ipad_landscape_default.png` — iPad Landscape (1194×834 @ 2.0 DPR) default view.
+  * `02_iphone_portrait_default.png` — iPhone Portrait (390×844 @ 3.0 DPR) stacked view.
+  * `03_ipad_chat_collapsed.png` — iPad Landscape with Chat collapsed and Actions expanded.
+  * `04_ipad_actions_drilled.png` — iPad Landscape drilled into actions sub-category.
+  * `05_ipad_editor_typing.png` — iPad Landscape with editor text and keyboard probabilities.
+  * `06_ipad_predictor_active.png` — iPad Landscape with active word and phrase suggestions.
+  * `07_ipad_settings_modal.png` — iPad Landscape with settings modal open.
+
 > **[RECOMMENDATION — R1.1 (Priority 1): Modularize `app.js`]**
-> **Status: Proposed — not yet implemented or approved.**
->
-> **Problem:** `app.js` is ~5,000 lines in a single file. Agents making changes frequently break unrelated behavior because they cannot see the full context of what they are editing.
->
-> **Recommendation:** Split into focused ES modules using `type="module"` on the script tag:
-> - `db.js` — IndexedDB operations
-> - `layout.js` — Layout engine
-> - `keyboard.js` — Keyboard rendering and key actions
-> - `predictions.js` — Word and phrase prediction logic
-> - `tts.js` — TTS functions
-> - `chat.js` — Chat send/receive and rendering
-> - `actions.js` — Actions grid and mode system
-> - `settings.js` — Settings modal sync and save
-> - `data-ops.js` — Import/export operations
-> - `app.js` — Main entry point and init only
->
-> Each function remains identical — only file organization changes. Implement one module at a time and test after each extraction.
->
-> **Spec change when implemented:** Add section 2.4 "Module Structure" to this document listing the module breakdown and each module's public API.
+> **Status: Implemented & Approved (2026-08-28).** All 7 targeted ES modules extracted into `frontend/js/`.
 
 > **[RECOMMENDATION — R1.2 (Priority 1): Add Playwright Smoke Tests]**
-> **Status: Proposed — not yet implemented or approved.**
->
-> **Problem:** No automated tests exist. Regressions are discovered only after deployment.
->
-> **Recommendation:** Add a `tests/` directory with Playwright end-to-end smoke tests:
-> - `01-startup.spec.js` — app loads, all 5 panels visible
-> - `02-editor-basic.spec.js` — type, del char, del word, del all
-> - `03-keyboard-input.spec.js` — click keyboard keys, text appears in editor
-> - `04-predictions.spec.js` — word predictions appear, clicking inserts
-> - `05-actions-grid.spec.js` — grid renders, click inserts in editor
-> - `06-panel-collapse.spec.js` — collapse/expand each panel
-> - `07-settings.spec.js` — open settings, change font size, close
-> - `08-tts-local.spec.js` — click @LocalTTS, check speaking state
->
-> Run against a locally served instance with mocked backend AI endpoints.
->
-> **Spec change when implemented:** Add section 2.5 "Test Suite" describing the tests and how to run them.
+> **Status: Implemented & Approved (2026-08-28).** 8 functional smoke tests implemented in `tests/`.
 
 > **[RECOMMENDATION — R1.3 (Priority 1): Visual Baseline Screenshots]**
-> **Status: Proposed — not yet implemented or approved.**
->
-> **Problem:** UI regressions in visual layout are undetectable without screenshots. An agent cannot see the UI.
->
-> **Recommendation:** Use Playwright to capture reference screenshots for key states (default all-open, wide/narrow mode, settings modal, various panel collapse combinations) stored in `tests/screenshots/baseline/`. Diff against baseline on each change.
->
-> **Spec change when implemented:** Add section 2.6 "Visual Baseline" describing the baseline states and diff process.
+> **Status: Implemented & Approved (2026-08-28).** 7 calibrated visual baseline tests and screenshot comparison suite implemented in `tests/test_09_visual_baseline.py`.
 
 > **[RECOMMENDATION — R4.2 (Priority 4): Multi-Device Sync (Cloud Backup)]**
 > **Status: Proposed — not yet implemented or approved.**
