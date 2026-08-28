@@ -2,6 +2,7 @@ import { initDatabase, getSetting, setSetting, getAllSettings, getSavedActions, 
 import { DICTIONARY_TEXT, DICTIONARY, DEFAULT_FREQS, BIGRAM_MATRIX, lastApiPredictions, setLastApiPredictions, clearLastApiPredictions, getNextCharProbabilities, getBlendedCharProbabilities, normalizeProbabilities, executeFetchWords, executeFetchPhrases, attachPredictionButtonTouchHandler, renderWordPredictions, renderPhrasePredictions } from './js/predictions.js';
 import { KEYBOARD_LAYOUT, isShiftActive, setShiftActive, toggleShift, renderKeyboard } from './js/keyboard.js';
 import { getCurrentNavPath, setCurrentNavPath, resetNavPath, getCurrentSeparator, getCurrentPrefix, escapeHtml, setupHoverPreview, evaluateLabelLines, chooseGridColumns, renderActionsNavBar, renderActionsGrid, showCategoryDeleteModal, showCategoryRecolorModal, migrateTagSeparators } from './js/actions.js';
+import { getPreviousCaretPosition, setPreviousCaretPosition, getLoadedActionTag, setLoadedActionTag, getActiveInputTarget, adjustEditorBoxHeight, insertTextAtCursor as editorInsertTextAtCursor, deleteChar as editorDeleteChar, deleteNextChar as editorDeleteNextChar, deleteWord as editorDeleteWord } from './js/editor.js';
 
 
 // --- Global State ---
@@ -1019,32 +1020,6 @@ function recalculateLayoutHeights() {
   }
 }
 
-function adjustEditorBoxHeight() {
-  const editor = document.getElementById("editor-box");
-  if (!editor) return;
-
-  const style = window.getComputedStyle(editor);
-  const fontSize = parseFloat(style.fontSize) || 24;
-  const lineHeightVal = parseFloat(style.lineHeight);
-  const lineHeight = (!isNaN(lineHeightVal) && lineHeightVal > 0) ? lineHeightVal : (fontSize * 1.3);
-
-  const paddingTop = parseFloat(style.paddingTop) || 6;
-  const paddingBottom = parseFloat(style.paddingBottom) || 6;
-  const borderTop = parseFloat(style.borderTopWidth) || 1;
-  const borderBottom = parseFloat(style.borderBottomWidth) || 1;
-
-  const paddingTotal = paddingTop + paddingBottom + borderTop + borderBottom;
-  const minH = lineHeight + paddingTotal;
-  const maxH = (lineHeight * 3) + paddingTotal;
-
-  editor.style.height = "auto";
-  const scrollH = editor.scrollHeight;
-  const targetH = Math.min(Math.max(scrollH, minH), maxH);
-
-  editor.style.height = `${targetH}px`;
-  editor.style.overflowY = scrollH > (maxH + 2) ? "auto" : "hidden";
-}
-
 function updateToolbarLayouts() {
   const processToolbar = (containerSelector, itemSelector) => {
     const container = document.querySelector(containerSelector);
@@ -1623,121 +1598,20 @@ function setupUIBindings() {
 }
 
 // --- Editor Suffix/Prefix insertion operations ---
-function getActiveInputTarget() {
-  const active = document.activeElement;
-  if (active && active !== document.body && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && !active.readOnly && !active.disabled) {
-    return active;
-  }
-  return document.getElementById("editor-box");
-}
-
 function insertTextAtCursor(text) {
-  const target = getActiveInputTarget();
-  if (!target) return;
-
-  const start = target.selectionStart ?? target.value.length;
-  const end = target.selectionEnd ?? target.value.length;
-  const currentText = target.value || "";
-
-  target.value = currentText.substring(0, start) + text + currentText.substring(end);
-  const newPos = start + text.length;
-  try {
-    target.selectionStart = target.selectionEnd = newPos;
-  } catch (_) { }
-
-  if (target.id === "editor-box") {
-    previousCaretPosition = target.selectionStart;
-    updatePredictionsAndKeyboard();
-  }
+  editorInsertTextAtCursor(text, updatePredictionsAndKeyboard);
 }
 
 function deleteChar() {
-  const target = getActiveInputTarget();
-  if (!target) return;
-
-  const currentText = target.value || "";
-  let start = target.selectionStart;
-  let end = target.selectionEnd;
-
-  if (document.activeElement !== target) {
-    if (previousCaretPosition > 0 && previousCaretPosition <= currentText.length) {
-      start = end = previousCaretPosition;
-    } else {
-      start = end = currentText.length;
-    }
-  } else if (start === null || start === undefined) {
-    start = end = currentText.length;
-  }
-
-  if (start !== end) {
-    target.value = currentText.substring(0, start) + currentText.substring(end);
-    try { target.selectionStart = target.selectionEnd = start; } catch (_) { }
-  } else if (start > 0) {
-    target.value = currentText.substring(0, start - 1) + currentText.substring(start);
-    try { target.selectionStart = target.selectionEnd = start - 1; } catch (_) { }
-  }
-
-  if (target.id === "editor-box") {
-    previousCaretPosition = target.selectionStart ?? target.value.length;
-    updatePredictionsAndKeyboard();
-  }
+  editorDeleteChar(updatePredictionsAndKeyboard);
 }
 
 function deleteNextChar() {
-  const target = getActiveInputTarget();
-  if (!target) return;
-
-  const currentText = target.value || "";
-  let start = target.selectionStart;
-  let end = target.selectionEnd;
-
-  if (document.activeElement !== target) {
-    if (previousCaretPosition >= 0 && previousCaretPosition <= currentText.length) {
-      start = end = previousCaretPosition;
-    } else {
-      start = end = 0;
-    }
-  } else if (start === null || start === undefined) {
-    start = end = 0;
-  }
-
-  if (start !== end) {
-    target.value = currentText.substring(0, start) + currentText.substring(end);
-    try { target.selectionStart = target.selectionEnd = start; } catch (_) { }
-  } else if (start < currentText.length) {
-    target.value = currentText.substring(0, start) + currentText.substring(start + 1);
-    try { target.selectionStart = target.selectionEnd = start; } catch (_) { }
-  }
-
-  if (target.id === "editor-box") {
-    previousCaretPosition = target.selectionStart ?? 0;
-    updatePredictionsAndKeyboard();
-  }
+  editorDeleteNextChar(updatePredictionsAndKeyboard);
 }
 
 function deleteWord() {
-  const editor = document.getElementById("editor-box");
-  const currentText = editor.value;
-  let start = editor.selectionStart;
-  if (document.activeElement !== editor) {
-    if (previousCaretPosition > 0 && previousCaretPosition <= currentText.length) {
-      start = previousCaretPosition;
-    } else {
-      start = currentText.length;
-    }
-  } else if (start === null || start === undefined) {
-    start = currentText.length;
-  }
-
-  const textBefore = currentText.substring(0, start);
-  const words = textBefore.trimEnd().split(" ");
-  words.pop();
-  const rest = words.join(" ") + (words.length ? " " : "");
-
-  editor.value = rest + currentText.substring(start);
-  try { editor.selectionStart = editor.selectionEnd = rest.length; } catch (_) { }
-  previousCaretPosition = editor.selectionStart;
-  updatePredictionsAndKeyboard();
+  editorDeleteWord(updatePredictionsAndKeyboard);
 }
 
 // --- Predictions Sizing & Sizing Pipeline ---
