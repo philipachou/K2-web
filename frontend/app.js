@@ -1,3 +1,5 @@
+import { initDatabase, getSetting, setSetting, getAllSettings, getSavedActions, saveAction, deleteAction, getChatHistory, addChatMessage, getPersonalSummary, setPersonalSummary, getContacts, saveContact, deleteContact, setContacts, seedDefaults, APP_MANUAL, db } from './js/db.js';
+
 // --- Dictionary raw list from dictionary.txt ---
 const DICTIONARY_TEXT = `the,1000
 and,900
@@ -517,7 +519,6 @@ const BIGRAM_MATRIX = {
 };
 
 // --- Global State ---
-let db = null;
 let activeMode = "Edit"; // Edit, Delete, @CloudTTS, @LocalTTS, Copy, @CloudAI, Recolor
 let shiftActive = false;
 let previousCaretPosition = 0;
@@ -630,287 +631,6 @@ let loadedActionTag = null;
 
 // Next-word prediction context cache
 let lastApiPredictions = [];
-
-// --- IndexedDB Setup ---
-const DB_NAME = "k2_web_db";
-const DB_VERSION = 2;
-
-const APP_MANUAL = `K2 Assistive Web System Capabilities & Manual:
-1. Gaze & Assistive Input: Supports gaze typing, dwell-click selection, predictive text completion, and action macros.
-2. Eye-Tracking Settings:
-   - font_size_editor (px): Editor font size.
-   - font_size_keyboard (px): On-screen keyboard button font size.
-   - min_target_width (px) & min_target_height (px): Target button sizing.
-   - hover_brightness: Target brightness multiplier on hover.
-3. System Operations (XML tags emitted by Cloud AI):
-   - <operation type="profile" action="add|set|update|delete" key="..." content="..." [old_content="..."]/>
-   - <operation type="contact" action="add|set|update|delete" key="..." content="..." [old_content="..."]/>
-   - <operation type="setting" action="set" key="..." content="..."/>
-   - <operation type="macro" action="add|set|update|delete" key="..." content="..." [old_content="..."]/>
-   - <operation type="sms" recipient="..." message="..."/>
-   - <operation type="email" recipient="..." subject="..." body="..."/>
-   - <operation type="home_assistant" service="..." entity_id="..."/>
-   - <operation type="speak" phrase="..."/>
-   - <operation type="set_timer" seconds="..." label="..."/>
-`;
-
-function initDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = function (e) {
-      db = e.target.result;
-      if (!db.objectStoreNames.contains("settings")) {
-        db.createObjectStore("settings", { keyPath: "key" });
-      }
-      if (!db.objectStoreNames.contains("chat_history")) {
-        db.createObjectStore("chat_history", { keyPath: "id", autoIncrement: true });
-      }
-      if (!db.objectStoreNames.contains("saved_actions")) {
-        db.createObjectStore("saved_actions", { keyPath: "tag" });
-      }
-      if (!db.objectStoreNames.contains("personal_summary")) {
-        db.createObjectStore("personal_summary", { keyPath: "category" });
-      }
-      if (!db.objectStoreNames.contains("contacts")) {
-        db.createObjectStore("contacts", { keyPath: "name" });
-      }
-    };
-
-    request.onsuccess = function (e) {
-      db = e.target.result;
-      seedDefaults().then(resolve);
-    };
-
-    request.onerror = function (e) {
-      console.error("IndexedDB initialization error:", e);
-      reject(e);
-    };
-  });
-}
-
-// Database Helpers
-function getSetting(key, defaultValue = "") {
-  return new Promise((resolve) => {
-    const txn = db.transaction("settings", "readonly");
-    const store = txn.objectStore("settings");
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result ? req.result.value : defaultValue);
-    req.onerror = () => resolve(defaultValue);
-  });
-}
-
-function setSetting(key, value) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("settings", "readwrite");
-    const store = txn.objectStore("settings");
-    store.put({ key, value });
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function getSavedActions() {
-  return new Promise((resolve) => {
-    const txn = db.transaction("saved_actions", "readonly");
-    const store = txn.objectStore("saved_actions");
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-  });
-}
-
-function saveAction(tag, action_text, color = null) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("saved_actions", "readwrite");
-    const store = txn.objectStore("saved_actions");
-    store.put({ tag, action_text, color, timestamp: Date.now() });
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function deleteAction(tag) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("saved_actions", "readwrite");
-    const store = txn.objectStore("saved_actions");
-    store.delete(tag);
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function getChatHistory(limit = 10) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("chat_history", "readonly");
-    const store = txn.objectStore("chat_history");
-    const req = store.getAll();
-    req.onsuccess = () => {
-      const res = req.result || [];
-      resolve(res.slice(-limit));
-    };
-  });
-}
-
-function addChatMessage(role, content, suggestions = null) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("chat_history", "readwrite");
-    const store = txn.objectStore("chat_history");
-    const item = { role, content, suggestions, timestamp: new Date().toISOString() };
-    store.add(item);
-    txn.oncomplete = () => {
-      renderSingleChatMessage(item);
-      resolve();
-    };
-  });
-}
-
-function getPersonalSummary() {
-  return new Promise((resolve) => {
-    const txn = db.transaction("personal_summary", "readonly");
-    const store = txn.objectStore("personal_summary");
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-  });
-}
-
-function setPersonalSummary(categories) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("personal_summary", "readwrite");
-    const store = txn.objectStore("personal_summary");
-    store.clear();
-    for (const item of categories) {
-      store.put(item);
-    }
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function getContacts() {
-  return new Promise((resolve) => {
-    if (!db || !db.objectStoreNames.contains("contacts")) return resolve([]);
-    const txn = db.transaction("contacts", "readonly");
-    const store = txn.objectStore("contacts");
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => resolve([]);
-  });
-}
-
-function saveContact(name, value) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("contacts", "readwrite");
-    const store = txn.objectStore("contacts");
-    store.put({ name, value, timestamp: Date.now() });
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function deleteContact(name) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("contacts", "readwrite");
-    const store = txn.objectStore("contacts");
-    store.delete(name);
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function setContacts(contactsList) {
-  return new Promise((resolve) => {
-    const txn = db.transaction("contacts", "readwrite");
-    const store = txn.objectStore("contacts");
-    store.clear();
-    for (const item of contactsList) {
-      if (item.name) store.put(item);
-    }
-    txn.oncomplete = () => resolve();
-  });
-}
-
-function getAllSettings() {
-  return new Promise((resolve) => {
-    const txn = db.transaction("settings", "readonly");
-    const store = txn.objectStore("settings");
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => resolve([]);
-  });
-}
-
-async function seedDefaults() {
-  const seeded = await getSetting("font_size_editor");
-  if (!seeded) {
-    await setSetting("font_size_editor", "32");
-    await setSetting("font_size_keyboard", "24");
-    await setSetting("min_target_width", "50");
-    await setSetting("min_target_height", "40");
-    await setSetting("basins_of_attraction", "0");
-    await setSetting("hover_brightness", "1.2");
-    await setSetting("tag_separator", "|");
-    await setSetting("biography_text", "Name: Kay. Patient diagnosed with ALS.\nHusband: Pete. Family lives nearby and visits frequently.\nInterests: Plants, nature, trolls, mixology.");
-
-    await setPersonalSummary([
-      { category: "User Info", content: "Name: Kay. Patient diagnosed with ALS." },
-      { category: "Relationships", content: "Husband: Pete. Family lives nearby and visits frequently." },
-      { category: "Interests", content: "Plants, nature, trolls, mixology." }
-    ]);
-
-    await saveContact("Phil", "phone=555-0199; email=phil@example.com; relationship=Husband");
-    await saveContact("Dr. Smith", "phone=555-4321; email=smith@clinic.org; relationship=Dentist");
-  }
-
-  const seededActionsV2 = await getSetting("seeded_actions_v2");
-  if (!seededActionsV2) {
-    await setSetting("seeded_actions_v2", "true");
-
-    const defaultActions = [
-      { tag: "Greetings|hello", text: "hello " },
-      { tag: "Greetings|please", text: "please " },
-      { tag: "Greetings|thank you", text: "thank you " },
-      { tag: "Names|Pete", text: "Pete " },
-      { tag: "Names|Phil", text: "Phil " },
-      { tag: "Names|Emma", text: "Emma " },
-      { tag: "Names|Griffin", text: "Griffin " },
-      { tag: "Names|Niko", text: "Niko " },
-      { tag: "Names|Nopo", text: "Nopo " },
-      { tag: "Misc|I would like", text: "I would like " },
-      { tag: "Misc|TTS okay?", text: "I'm going to speak to you through this device, if that's okay " },
-      { tag: "Smart home|lights|bedroom", text: "toggle the bedroom lights " },
-      { tag: "Smart home|lights|living room", text: "toggle the living room lights " },
-      { tag: "Smart home|thermostat|temperature", text: "check the temperature " },
-      { tag: "please", text: "please " },
-      { tag: "thank you", text: "thank you " },
-      { tag: "TTS Effects|[applause]", text: "[applause] " },
-      { tag: "TTS Effects|[clears throat]", text: "[clears throat] " },
-      { tag: "TTS Effects|[coughs]", text: "[coughs] " },
-      { tag: "TTS Effects|[drawn out]", text: "[drawn out] " },
-      { tag: "TTS Effects|[excited]", text: "[excited] " },
-      { tag: "TTS Effects|[explosion]", text: "[explosion] " },
-      { tag: "TTS Effects|[gasps]", text: "[gasps] " },
-      { tag: "TTS Effects|[gulps]", text: "[gulps] " },
-      { tag: "TTS Effects|[gunshot]", text: "[gunshot] " },
-      { tag: "TTS Effects|[happy]", text: "[happy] " },
-      { tag: "TTS Effects|[laughs harder]", text: "[laughs harder] " },
-      { tag: "TTS Effects|[laughs]", text: "[laughs] " },
-      { tag: "TTS Effects|[long pause]", text: "[long pause] " },
-      { tag: "TTS Effects|[mischievously]", text: "[mischievously] " },
-      { tag: "TTS Effects|[pause]", text: "[pause] " },
-      { tag: "TTS Effects|[rushed]", text: "[rushed] " },
-      { tag: "TTS Effects|[sad]", text: "[sad] " },
-      { tag: "TTS Effects|[sarcastic]", text: "[sarcastic] " },
-      { tag: "TTS Effects|[short pause]", text: "[short pause] " },
-      { tag: "TTS Effects|[shouts]", text: "[shouts] " },
-      { tag: "TTS Effects|[sighs]", text: "[sighs] " },
-      { tag: "TTS Effects|[sings]", text: "[sings] " },
-      { tag: "TTS Effects|[sniffs]", text: "[sniffs] " },
-      { tag: "TTS Effects|[strong French accent]", text: "[strong French accent] " },
-      { tag: "TTS Effects|[tired]", text: "[tired] " },
-      { tag: "TTS Effects|[upset]", text: "[upset] " },
-      { tag: "TTS Effects|[whispers]", text: "[whispers] " },
-      { tag: "TTS Effects|[worried]", text: "[worried] " }
-    ];
-
-    for (const act of defaultActions) {
-      await saveAction(act.tag, act.text);
-    }
-  }
-}
 
 // --- Dynamic Predictor Implementations in JS (0ms local execution) ---
 function getNextCharProbabilities(prefix) {
@@ -1157,7 +877,7 @@ function setupHorizontalDwellScrolling(containerOrId) {
 }
 
 // --- Page Setup & Listeners ---
-document.addEventListener("DOMContentLoaded", async () => {
+async function initApp() {
   await initDatabase();
 
   // Initialize Preferences UI
@@ -1319,22 +1039,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (isCollapsing) {
         // Determine panel key for {C, A, E} tracking
         let key = null;
-        if (panel.classList.contains('chat-panel'))    key = 'chat';
+        if (panel.classList.contains('chat-panel')) key = 'chat';
         else if (panel.classList.contains('actions-panel')) key = 'actions';
-        else if (panel.classList.contains('editor-panel'))  key = 'editor';
+        else if (panel.classList.contains('editor-panel')) key = 'editor';
 
         // Enforce: at least one of {C, A, E} must stay open
-        const chatPanel    = document.querySelector('.chat-panel');
+        const chatPanel = document.querySelector('.chat-panel');
         const actionsPanel = document.querySelector('.actions-panel');
-        const editorPanel  = document.querySelector('.editor-panel');
+        const editorPanel = document.querySelector('.editor-panel');
         const c_active = !chatPanel.classList.contains('collapsed');
         const a_active = !actionsPanel.classList.contains('collapsed');
         const e_active = !editorPanel.classList.contains('collapsed');
 
         const wouldAllCollapse = (
-          (key === 'chat'    && !a_active && !e_active) ||
+          (key === 'chat' && !a_active && !e_active) ||
           (key === 'actions' && !c_active && !e_active) ||
-          (key === 'editor'  && !c_active && !a_active)
+          (key === 'editor' && !c_active && !a_active)
         );
 
         if (wouldAllCollapse) {
@@ -1342,8 +1062,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           const earliest = closedPanelHistory.find(k => k !== key);
           if (earliest) {
             const reopenEl = document.querySelector(
-              earliest === 'chat'    ? '.chat-panel' :
-              earliest === 'actions' ? '.actions-panel' : '.editor-panel'
+              earliest === 'chat' ? '.chat-panel' :
+                earliest === 'actions' ? '.actions-panel' : '.editor-panel'
             );
             if (reopenEl) {
               reopenEl.classList.remove('collapsed');
@@ -1362,9 +1082,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         panel.classList.remove("collapsed");
         let key = null;
-        if (panel.classList.contains('chat-panel'))    key = 'chat';
+        if (panel.classList.contains('chat-panel')) key = 'chat';
         else if (panel.classList.contains('actions-panel')) key = 'actions';
-        else if (panel.classList.contains('editor-panel'))  key = 'editor';
+        else if (panel.classList.contains('editor-panel')) key = 'editor';
         if (key) {
           const idx = closedPanelHistory.indexOf(key);
           if (idx !== -1) closedPanelHistory.splice(idx, 1);
@@ -1426,7 +1146,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   editor.focus();
   editor.setSelectionRange(0, 0);
   previousCaretPosition = 0;
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
 
 function updateAppViewportHeight() {
   const vv = window.visualViewport;
@@ -1443,7 +1169,7 @@ const closedPanelHistory = []; // entries: 'chat' | 'actions' | 'editor'
 
 /** Minimum collapsed panel label bar height (px) */
 const LABEL_BAR_H_DESKTOP = 40;
-const LABEL_BAR_H_MOBILE  = 40;
+const LABEL_BAR_H_MOBILE = 40;
 
 /** Debounce timer handle */
 let _recalcTimer = null;
@@ -1537,7 +1263,7 @@ function applyPanelHeight(el, px) {
 
 /** Update label orientation for chat-panel and actions-panel in wide mode */
 function updateWideModeLabels(c_active, a_active, is_wide) {
-  const chatPanel    = document.querySelector('.chat-panel');
+  const chatPanel = document.querySelector('.chat-panel');
   const actionsPanel = document.querySelector('.actions-panel');
   if (!chatPanel || !actionsPanel) return;
 
@@ -1618,54 +1344,54 @@ function onDragEnd() {
 /** ─── MAIN LAYOUT ENGINE ─────────────────────────────────────────────── */
 function recalculateLayoutHeights() {
   // ── Gather DOM elements ──────────────────────────────────────────────
-  const chatPanel      = document.querySelector('.chat-panel');
-  const actionsPanel   = document.querySelector('.actions-panel');
-  const editorPanel    = document.querySelector('.editor-panel');
+  const chatPanel = document.querySelector('.chat-panel');
+  const actionsPanel = document.querySelector('.actions-panel');
+  const editorPanel = document.querySelector('.editor-panel');
   const predictorPanel = document.querySelector('.predictions-panel');
-  const keyboardPanel  = document.querySelector('.keyboard-panel-wrapper');
-  const topRowEl       = document.querySelector('.top-row');
+  const keyboardPanel = document.querySelector('.keyboard-panel-wrapper');
+  const topRowEl = document.querySelector('.top-row');
   const upperWorkspace = document.querySelector('.upper-workspace');
-  const appCont        = document.querySelector('.app-container');
+  const appCont = document.querySelector('.app-container');
 
   if (!chatPanel || !actionsPanel || !editorPanel || !topRowEl || !appCont) return;
 
   // ── Viewport & mode ──────────────────────────────────────────────────
-  const vv             = window.visualViewport;
-  const viewport_H     = vv ? vv.height : window.innerHeight;
-  const is_wide        = window.innerWidth >= 769;
+  const vv = window.visualViewport;
+  const viewport_H = vv ? vv.height : window.innerHeight;
+  const is_wide = window.innerWidth >= 769;
   // Account for app-container top/bottom padding
-  const appStyle       = window.getComputedStyle(appCont);
-  const appPadV        = parseFloat(appStyle.paddingTop) + parseFloat(appStyle.paddingBottom);
-  const available_H    = viewport_H - appPadV; // actual content area
+  const appStyle = window.getComputedStyle(appCont);
+  const appPadV = parseFloat(appStyle.paddingTop) + parseFloat(appStyle.paddingBottom);
+  const available_H = viewport_H - appPadV; // actual content area
 
   // ── Panel active states ──────────────────────────────────────────────
   const c_active = !chatPanel.classList.contains('collapsed');
   const a_active = !actionsPanel.classList.contains('collapsed');
   const e_active = !editorPanel.classList.contains('collapsed');
   const p_active = predictorPanel && !predictorPanel.classList.contains('collapsed');
-  const k_active = keyboardPanel  && !keyboardPanel.classList.contains('collapsed');
+  const k_active = keyboardPanel && !keyboardPanel.classList.contains('collapsed');
 
   // ── Keyboard mode ────────────────────────────────────────────────────
-  const use_os_keyboard       = settings.use_os_keyboard === 1;
-  const auto_hide_k2          = settings.auto_hide_k2_keyboard === 1;
-  const LABEL_BAR_H           = settings.min_target_height || 40;
+  const use_os_keyboard = settings.use_os_keyboard === 1;
+  const auto_hide_k2 = settings.auto_hide_k2_keyboard === 1;
+  const LABEL_BAR_H = settings.min_target_height || 40;
 
   // ── Step 1: Fixed component heights (XF) ─────────────────────────────
   const CF = c_active ? 0 : LABEL_BAR_H;
 
-  const modeBar       = actionsPanel.querySelector('.panel-header');
+  const modeBar = actionsPanel.querySelector('.panel-header');
   const breadcrumbBar = actionsPanel.querySelector('.actions-nav-bar');
-  const previewBar    = actionsPanel.querySelector('.actions-preview-bar');
-  const AF_content    = a_active ? (
-    (modeBar       ? modeBar.getBoundingClientRect().height       : 0) +
+  const previewBar = actionsPanel.querySelector('.actions-preview-bar');
+  const AF_content = a_active ? (
+    (modeBar ? modeBar.getBoundingClientRect().height : 0) +
     (breadcrumbBar ? breadcrumbBar.getBoundingClientRect().height : 0) +
-    (previewBar    ? previewBar.getBoundingClientRect().height    : 0) + 2 /* border */
+    (previewBar ? previewBar.getBoundingClientRect().height : 0) + 2 /* border */
   ) : LABEL_BAR_H;
   const AF = AF_content;
 
   // Editor Toolbar & Text Box required height
   const editToolbar = editorPanel.querySelector('.edit-toolbar');
-  const toolbarH    = e_active ? (
+  const toolbarH = e_active ? (
     editToolbar && editToolbar.scrollHeight > 0
       ? Math.max(editToolbar.scrollHeight, settings.min_target_height || 40)
       : (settings.min_target_height || 40)
@@ -1673,12 +1399,12 @@ function recalculateLayoutHeights() {
   const EF = e_active ? (toolbarH + 18) : LABEL_BAR_H;
 
   // ── Step 2: Editor variable height (EV_min & EV) ──────────────────────
-  const editLH   = getEditorLineHeight();
-  const edPadT   = parseFloat(window.getComputedStyle(document.getElementById('editor-box')).paddingTop) || 6;
-  const edPadB   = parseFloat(window.getComputedStyle(document.getElementById('editor-box')).paddingBottom) || 6;
-  const edBord   = 4;
+  const editLH = getEditorLineHeight();
+  const edPadT = parseFloat(window.getComputedStyle(document.getElementById('editor-box')).paddingTop) || 6;
+  const edPadB = parseFloat(window.getComputedStyle(document.getElementById('editor-box')).paddingBottom) || 6;
+  const edBord = 4;
   const numLines = countEditorLines();
-  const EV_min   = e_active ? Math.round(numLines * editLH + edPadT + edPadB + edBord) : 0;
+  const EV_min = e_active ? Math.round(numLines * editLH + edPadT + edPadB + edBord) : 0;
   const H_editor_min = e_active ? (EF + EV_min + 2) : LABEL_BAR_H;
 
   // Predictor Panel required height
@@ -1702,11 +1428,11 @@ function recalculateLayoutHeights() {
   const divider_H = dividers.reduce((sum, d) => sum + (d.getBoundingClientRect().height + parseFloat(getComputedStyle(d).marginTop) + parseFloat(getComputedStyle(d).marginBottom)), 0);
 
   // Minimum heights for Chat Log and Actions Panel
-  const chatLH  = getChatLineHeight();
-  const CV_min  = c_active ? Math.round(Math.max(1, Math.min(3, countChatLines())) * chatLH + 24) : 0;
+  const chatLH = getChatLineHeight();
+  const CV_min = c_active ? Math.round(Math.max(1, Math.min(3, countChatLines())) * chatLH + 24) : 0;
 
   const actRowH = getActionRowHeight();
-  const AV_min  = a_active ? Math.round(Math.max(1, Math.min(3, countActionRows())) * actRowH + 8) : 0;
+  const AV_min = a_active ? Math.round(Math.max(1, Math.min(3, countActionRows())) * actRowH + 8) : 0;
 
   const topRowDividerH = (!is_wide) ? 12 : 0;
 
@@ -1719,7 +1445,7 @@ function recalculateLayoutHeights() {
 
   // ── Step 3: Minimum app height & H_excess ────────────────────────────
   const H_app_min = H_topmin + H_editor_min + PF + KF + divider_H;
-  const H_excess  = available_H - H_app_min;
+  const H_excess = available_H - H_app_min;
 
   // ── Step 4: Allocate heights ─────────────────────────────────────────
   let EV = EV_min;
@@ -1944,8 +1670,8 @@ function updateToolbarLayouts() {
     const steps = [
       { short: false, fontSize: "0.8rem" },
       { short: false, fontSize: "0.65rem" },
-      { short: true,  fontSize: "0.8rem" },
-      { short: true,  fontSize: "0.65rem" }
+      { short: true, fontSize: "0.8rem" },
+      { short: true, fontSize: "0.65rem" }
     ];
 
     for (let i = 0; i < steps.length; i++) {
@@ -2644,9 +2370,19 @@ function deleteChar() {
   const target = getActiveInputTarget();
   if (!target) return;
 
-  const start = target.selectionStart ?? target.value.length;
-  const end = target.selectionEnd ?? target.value.length;
   const currentText = target.value || "";
+  let start = target.selectionStart;
+  let end = target.selectionEnd;
+
+  if (document.activeElement !== target) {
+    if (previousCaretPosition > 0 && previousCaretPosition <= currentText.length) {
+      start = end = previousCaretPosition;
+    } else {
+      start = end = currentText.length;
+    }
+  } else if (start === null || start === undefined) {
+    start = end = currentText.length;
+  }
 
   if (start !== end) {
     target.value = currentText.substring(0, start) + currentText.substring(end);
@@ -2657,7 +2393,7 @@ function deleteChar() {
   }
 
   if (target.id === "editor-box") {
-    previousCaretPosition = target.selectionStart;
+    previousCaretPosition = target.selectionStart ?? target.value.length;
     updatePredictionsAndKeyboard();
   }
 }
@@ -2666,9 +2402,19 @@ function deleteNextChar() {
   const target = getActiveInputTarget();
   if (!target) return;
 
-  const start = target.selectionStart ?? target.value.length;
-  const end = target.selectionEnd ?? target.value.length;
   const currentText = target.value || "";
+  let start = target.selectionStart;
+  let end = target.selectionEnd;
+
+  if (document.activeElement !== target) {
+    if (previousCaretPosition >= 0 && previousCaretPosition <= currentText.length) {
+      start = end = previousCaretPosition;
+    } else {
+      start = end = 0;
+    }
+  } else if (start === null || start === undefined) {
+    start = end = 0;
+  }
 
   if (start !== end) {
     target.value = currentText.substring(0, start) + currentText.substring(end);
@@ -2679,15 +2425,24 @@ function deleteNextChar() {
   }
 
   if (target.id === "editor-box") {
-    previousCaretPosition = target.selectionStart;
+    previousCaretPosition = target.selectionStart ?? 0;
     updatePredictionsAndKeyboard();
   }
 }
 
 function deleteWord() {
   const editor = document.getElementById("editor-box");
-  const start = editor.selectionStart;
   const currentText = editor.value;
+  let start = editor.selectionStart;
+  if (document.activeElement !== editor) {
+    if (previousCaretPosition > 0 && previousCaretPosition <= currentText.length) {
+      start = previousCaretPosition;
+    } else {
+      start = currentText.length;
+    }
+  } else if (start === null || start === undefined) {
+    start = currentText.length;
+  }
 
   const textBefore = currentText.substring(0, start);
   const words = textBefore.trimEnd().split(" ");
@@ -2695,7 +2450,7 @@ function deleteWord() {
   const rest = words.join(" ") + (words.length ? " " : "");
 
   editor.value = rest + currentText.substring(start);
-  editor.selectionStart = editor.selectionEnd = rest.length;
+  try { editor.selectionStart = editor.selectionEnd = rest.length; } catch (_) { }
   previousCaretPosition = editor.selectionStart;
   updatePredictionsAndKeyboard();
 }
@@ -3841,7 +3596,7 @@ async function processClientAction(action) {
     } else if (op === "sms") {
       const recipient = (data.recipient || data.phone || "").trim();
       const body = data.message || data.text || data.content || "";
-      
+
       // Format phone number for RFC 5724 sms: protocol (preserve leading + without turning it into %2B)
       const cleanPhone = recipient.replace(/[^\d+]/g, "") || recipient;
       const smsUrl = `sms:${cleanPhone}${body ? `?body=${encodeURIComponent(body)}` : ''}`;
@@ -4708,6 +4463,7 @@ function renderSingleChatMessage(msg) {
 
   log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
 }
+window.renderSingleChatMessage = renderSingleChatMessage;
 
 async function renderChatLog(force = false) {
   const log = document.getElementById("chat-log-scroll");
@@ -4723,6 +4479,7 @@ async function renderChatLog(force = false) {
     log.scrollTop = log.scrollHeight;
   }
 }
+window.renderChatLog = renderChatLog;
 
 // --- Passive Memory Extraction & Turn Counter ---
 let chatTurnCounter = 0;

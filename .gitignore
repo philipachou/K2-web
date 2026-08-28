@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 venv/
 scratch/
+tests/screenshots/current/
+tests/screenshots/diff/
