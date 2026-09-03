@@ -1,5 +1,5 @@
 # K2-web Master Specification
-**Version:** 2026-08-28
+**Version:** 2026-09-03
 **Source files audited:** `frontend/index.html`, `frontend/app.js`, `frontend/js/*.js`, `frontend/style.css`, `backend/main.py`
 
 ---
@@ -1058,10 +1058,6 @@ Tags truncated to 15 characters. Fallback: regex extraction of numbered list. Fi
 > **[INTENT — Speak/Inject Two-Step]** `speak` and `inject` operations are handled server-side (via `thread_local` storage) and then executed client-side via `client_actions`. This two-step approach allows the backend to parse XML first, then the frontend executes in order.
 
 > **[DIVERGENCE — set_alarm / set_reminder are Stubs]** `set_alarm` and `set_reminder` only log to the chat log — no actual OS alarm is set. On Windows there is no web API for system alarms. Current system messages say "⏰ Alarm set for {time}" which implies success when no OS alarm was set. See R2.5.
-
-> **[DIVERGENCE — `get_web_image` Function Undefined]** In `backend/main.py`, the operation type `get_web_image` (and alias `get_image`) is routed to a Python call `get_web_image(query)` which does not exist — only `get_wikipedia_image()` is defined. If the AI emits `<operation type="get_web_image" .../>` (which the system prompt explicitly instructs it to do), the backend will raise a `NameError` and crash the request. **Intent:** `get_web_image` should route to `get_wikipedia_image()`. This is a pre-existing bug to be fixed.
-
-> **[DIVERGENCE — Undocumented Operation Type Aliases]** The backend silently accepts multiple alias strings for the same operation: `get_image` (for `get_web_image`), `wikipedia_image` and `get_wikipedia_image` (for the Wikipedia image search), `generate_ai_image` and `ai_image` (for `generate_image`). These aliases were added ad-hoc as defensive coding but are not design intent — the canonical string is the only one that should be used. **Intent:** One canonical `type` string per operation, matching exactly between the AI system prompt and the backend router. The aliases should be removed once the canonical strings are confirmed.
 
 > **[OPEN QUESTION — Misleading Alarm/Reminder Messages]** Should `set_alarm` and `set_reminder` messages clearly state that no OS alarm was set? See R2.5.
 

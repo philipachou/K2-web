@@ -354,15 +354,11 @@ def parse_operations_and_suggestions(text: str, client_actions: list) -> tuple[s
             txt = attrs.get("text", "") or attrs.get("content", "")
             if txt:
                 inject_text(txt)
-        elif op_type in ["get_web_image", "get_image"]:
-            query = attrs.get("query", "") or attrs.get("content", "")
-            if query:
-                get_web_image(query)
-        elif op_type in ["get_wikipedia_image", "wikipedia_image"]:
+        elif op_type == "get_web_image":
             query = attrs.get("query", "") or attrs.get("content", "")
             if query:
                 get_wikipedia_image(query)
-        elif op_type in ["generate_image", "generate_ai_image", "ai_image"]:
+        elif op_type == "generate_image":
             prompt = attrs.get("prompt", "") or attrs.get("content", "")
             caption = attrs.get("caption", "")
             if prompt:
@@ -510,7 +506,7 @@ def chat(request: ChatRequest):
             "   Whenever Kay provides an image URL (such as direct image links ending in .jpg, .png, or media.licdn.com, imgur, web URLs, etc.) or asks to display an image at a specific URL, you MUST ALWAYS output the <operation type=\"show_image\" url=\"URL\" caption=\"...\"/> tag to display it! NEVER refuse to display a user-provided image link or claim privacy restrictions prevent displaying image URLs.\n"
             "4. WEB IMAGE SEARCH & PEOPLE:\n"
             "   When Kay requests a picture of a person (e.g. 'Philip Chou LinkedIn', 'Claude Shannon'), place, or concept across the web or Wikipedia:\n"
-            "   You MUST output the XML operation tag: <operation type=\"get_web_image\" query=\"Philip Chou LinkedIn\"/> (or <operation type=\"get_wikipedia_image\" query=\"...\"/>)!\n"
+            "   You MUST output the XML operation tag: <operation type=\"get_web_image\" query=\"Philip Chou LinkedIn\"/>!\n"
             "   The system backend will automatically execute the image search, resolve the direct picture URL, and render the visual image card.\n"
             "5. AI IMAGE GENERATION & SCIENTIFIC DIAGRAMS:\n"
             "   When Kay asks to generate, draw, paint, synthesize, or illustrate a new image, custom diagram, or artistic visual:\n"
