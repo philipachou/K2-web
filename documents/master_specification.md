@@ -627,6 +627,10 @@ Character insertion semantics for all K2 keyboard key presses:
 
 **Fixed heights (XF):**
 - Collapsed panel → `LABEL_BAR_H = min_target_height`
+- Top Row (Chat + Actions):
+  - Wide mode (at least one open) → `max(c_active ? CF+CV_min : LABEL_BAR_H, a_active ? AF+AV_min : LABEL_BAR_H)`
+  - Wide mode (both collapsed) → `2 × LABEL_BAR_H + 4px` (two horizontal stacked label strips)
+  - Narrow mode → `(c_active ? CF+CV_min : LABEL_BAR_H) + (a_active ? AF+AV_min : LABEL_BAR_H) + topRowDividerH`
 - Actions open → `modeBar + breadcrumbBar + previewBar + 2px`
 - Editor open → `toolbarHeight + 18px`
 - Predictor open → `2 × min_target_height + 14px`
@@ -638,6 +642,7 @@ Character insertion semantics for all K2 keyboard key presses:
 - `EV_min` = `editorLineCount × lineHeight + padding + border`
 
 **Excess** = `available_H − sum(all minimums + dividers)`
+- Divider height (`divider_H`) is computed defensively from the `--divider-total-height` CSS token (`3 × --divider-total-height`), plus `topRowDividerH` in narrow stacked mode, avoiding dynamic DOM layout querying.
 
 **Distribution:**
 - Excess > 0, only editor open: all to editor text box
@@ -657,18 +662,8 @@ All heights applied via `applyPanelHeight(el, px)` which sets `style.height/minH
 
 > **[DIVERGENCE — Pure CSS Abandoned]** The original design intent was a "pure CSS" layout using `flex` and `min-content` sizing. This was abandoned because OS virtual keyboard interaction made it impossible without JS viewport tracking. The JS-driven layout is now the permanent architecture.
 
-> **[OPEN QUESTION — Defensive Divider Measurement]** The layout engine measures divider heights from the DOM, which breaks if dividers are restyled. See R1.4.
-
 > **[RECOMMENDATION — R1.4 (Priority 1): Layout Engine Defensive Measurements]**
-> **Status: Proposed — not yet implemented or approved.**
->
-> **Problem:** The layout engine queries the DOM for divider heights, which breaks silently if dividers are restyled with different margins or padding.
->
-> **Recommendation:**
-> 1. Add a CSS custom property `--divider-total-height` equal to `height + marginTop + marginBottom` for each divider, and read this property in the layout engine instead of querying the DOM.
-> 2. Add a developer-mode flag that logs all layout measurements to the console on each `recalculateLayoutHeights()` call.
->
-> **Spec change when implemented:** Update section 10.2 to reference the CSS property rather than DOM queries for divider height measurement.
+> **Status: Implemented & Approved (2026-09-03).** CSS custom property `--divider-total-height` defined in `style.css` and consumed directly by the layout engine in `app.js` without dynamic DOM query loops. Diagnostic table logging added via `window.__K2_DEBUG_LAYOUT__`.
 
 ---
 

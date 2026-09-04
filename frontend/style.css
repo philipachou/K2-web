@@ -19,6 +19,9 @@
   --min-target-width: 50px;
   --button-gap-x: 4px;
   --button-gap-y: 4px;
+  --divider-thickness: var(--button-gap-y, 4px);
+  --divider-margin-y: var(--button-gap-y, 4px);
+  --divider-total-height: calc(var(--divider-thickness) + 2 * var(--divider-margin-y));
 }
 
 * {
@@ -79,11 +82,11 @@ html, body {
 /* --- Standardized Panel Boundary System --- */
 .panel-divider.horizontal-divider {
   width: 100%;
-  height: var(--button-gap-y, 4px) !important;
-  min-height: var(--button-gap-y, 4px) !important;
-  max-height: var(--button-gap-y, 4px) !important;
-  margin-top: var(--button-gap-y, 4px) !important;
-  margin-bottom: var(--button-gap-y, 4px) !important;
+  height: var(--divider-thickness, 4px) !important;
+  min-height: var(--divider-thickness, 4px) !important;
+  max-height: var(--divider-thickness, 4px) !important;
+  margin-top: var(--divider-margin-y, 4px) !important;
+  margin-bottom: var(--divider-margin-y, 4px) !important;
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(16, 185, 129, 0.8), rgba(59, 130, 246, 0.15));
   border-radius: 999px;
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
@@ -107,11 +110,11 @@ html, body {
   .panel-divider.vertical-divider {
     width: 100% !important;
     max-width: 100% !important;
-    height: var(--button-gap-y, 4px) !important;
-    min-height: var(--button-gap-y, 4px) !important;
-    max-height: var(--button-gap-y, 4px) !important;
+    height: var(--divider-thickness, 4px) !important;
+    min-height: var(--divider-thickness, 4px) !important;
+    max-height: var(--divider-thickness, 4px) !important;
     min-width: 0 !important;
-    margin: var(--button-gap-y, 4px) 0 !important;
+    margin: var(--divider-margin-y, 4px) 0 !important;
     background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(16, 185, 129, 0.8), rgba(59, 130, 246, 0.15));
   }
 }

@@ -758,9 +758,10 @@ function recalculateLayoutHeights() {
     KF = k_active ? (5 * (settings.min_target_height || 40) + 4 * (settings.button_gap_y || 4) + 8) : LABEL_BAR_H;
   }
 
-  // Dividers: count them and their total height
-  const dividers = Array.from(document.querySelectorAll('.panel-divider.horizontal-divider'));
-  const divider_H = dividers.reduce((sum, d) => sum + (d.getBoundingClientRect().height + parseFloat(getComputedStyle(d).marginTop) + parseFloat(getComputedStyle(d).marginBottom)), 0);
+  // Dividers: compute total height defensively from CSS custom property token
+  const dividerTotalH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--divider-total-height')) || (3 * (settings.button_gap_y || 4));
+  const horizontalDividerCount = 3; // Top-Editor, Editor-Predictor, Upper-Keyboard
+  const divider_H = horizontalDividerCount * dividerTotalH;
 
   // Minimum heights for Chat Log and Actions Panel
   const chatLH = getChatLineHeight();
@@ -769,11 +770,15 @@ function recalculateLayoutHeights() {
   const actRowH = getActionRowHeight();
   const AV_min = a_active ? Math.round(Math.max(1, Math.min(3, countActionRows())) * actRowH + 8) : 0;
 
-  const topRowDividerH = (!is_wide) ? 12 : 0;
+  const topRowDividerH = (!is_wide) ? dividerTotalH : 0;
 
   let H_topmin;
   if (is_wide) {
-    H_topmin = Math.max(c_active ? (CF + CV_min) : LABEL_BAR_H, a_active ? (AF + AV_min) : LABEL_BAR_H);
+    if (!c_active && !a_active) {
+      H_topmin = 2 * LABEL_BAR_H + 4;
+    } else {
+      H_topmin = Math.max(c_active ? (CF + CV_min) : LABEL_BAR_H, a_active ? (AF + AV_min) : LABEL_BAR_H);
+    }
   } else {
     H_topmin = (c_active ? (CF + CV_min) : LABEL_BAR_H) + (a_active ? (AF + AV_min) : LABEL_BAR_H) + topRowDividerH;
   }
@@ -864,7 +869,7 @@ function recalculateLayoutHeights() {
       }
     }
 
-    const topRowDividerH = 12; // 4px divider + 4px top margin + 4px bottom margin in narrow stacked mode
+    const topRowDividerH = dividerTotalH;
     const topRowH = (c_active ? (CF + CV) : LABEL_BAR_H) + (a_active ? (AF + AV) : LABEL_BAR_H) + topRowDividerH;
     applyPanelHeight(topRowEl, topRowH);
 
@@ -966,6 +971,25 @@ function recalculateLayoutHeights() {
     appCont.style.height = `${Math.round(viewport_H)}px`;
     appCont.style.minHeight = `${Math.round(viewport_H)}px`;
     appCont.style.maxHeight = `${Math.round(viewport_H)}px`;
+  }
+
+  if (window.__K2_DEBUG_LAYOUT__) {
+    console.table({
+      available_H,
+      H_app_min,
+      H_excess,
+      H_topmin,
+      H_editor,
+      divider_H,
+      dividerTotalH,
+      topRowDividerH,
+      is_wide,
+      c_active,
+      a_active,
+      e_active,
+      p_active,
+      k_active
+    });
   }
 }
 
